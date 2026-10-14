@@ -1,4 +1,4 @@
-import { AppStore, TrackedAnime, AnimeStatus, MediaKind, FavoriteItem, FavoriteCharacter, UserFavorites } from './types';
+import { AppStore, TrackedAnime, AnimeStatus, MediaKind, FavoriteItem, FavoriteCharacter, FavoritePerson, UserFavorites } from './types';
 
 const STORE_KEY = 'animelist_v1';
 const STORE_VERSION = 1;
@@ -10,6 +10,7 @@ function getDefaultStore(): AppStore {
       animes: [],
       mangas: [],
       characters: [],
+      people: [],
     },
     version: STORE_VERSION,
     lastExport: null,
@@ -178,12 +179,13 @@ export function importStoreJSON(json: string): { success: boolean; count: number
 export function getFavorites(): UserFavorites {
   const store = loadStore();
   if (!store.favorites) {
-    return { animes: [], mangas: [], characters: [] };
+    return { animes: [], mangas: [], characters: [], people: [] };
   }
   return {
     animes: Array.isArray(store.favorites.animes) ? store.favorites.animes : [],
     mangas: Array.isArray(store.favorites.mangas) ? store.favorites.mangas : [],
     characters: Array.isArray(store.favorites.characters) ? store.favorites.characters : [],
+    people: Array.isArray(store.favorites.people) ? store.favorites.people : [],
   };
 }
 
@@ -196,10 +198,11 @@ export function saveFavorites(favorites: UserFavorites): void {
 export function toggleFavoriteMedia(item: FavoriteItem): boolean {
   const store = loadStore();
   if (!store.favorites) {
-    store.favorites = { animes: [], mangas: [], characters: [] };
+    store.favorites = { animes: [], mangas: [], characters: [], people: [] };
   }
+  const favs = store.favorites;
   const isManga = item.kind === 'manga';
-  const list = isManga ? (store.favorites.mangas ??= []) : (store.favorites.animes ??= []);
+  const list = isManga ? (favs.mangas ??= []) : (favs.animes ??= []);
   const index = list.findIndex((x) => x.malId === item.malId);
 
   if (index >= 0) {
@@ -236,9 +239,10 @@ export function removeFavoriteMedia(malId: number, kind: 'anime' | 'manga'): voi
 export function addFavoriteCharacter(char: FavoriteCharacter): void {
   const store = loadStore();
   if (!store.favorites) {
-    store.favorites = { animes: [], mangas: [], characters: [] };
+    store.favorites = { animes: [], mangas: [], characters: [], people: [] };
   }
-  const list = (store.favorites.characters ??= []);
+  const favs = store.favorites;
+  const list = (favs.characters ??= []);
   if (!list.some((c) => String(c.id) === String(char.id))) {
     if (list.length >= 10) {
       list.shift();
@@ -252,6 +256,29 @@ export function removeFavoriteCharacter(id: number | string): void {
   const store = loadStore();
   if (!store.favorites || !store.favorites.characters) return;
   store.favorites.characters = store.favorites.characters.filter((c) => String(c.id) !== String(id));
+  saveStore(store);
+}
+
+export function addFavoritePerson(person: FavoritePerson): void {
+  const store = loadStore();
+  if (!store.favorites) {
+    store.favorites = { animes: [], mangas: [], characters: [], people: [] };
+  }
+  const favs = store.favorites;
+  const list = (favs.people ??= []);
+  if (!list.some((p) => String(p.id) === String(person.id))) {
+    if (list.length >= 10) {
+      list.shift();
+    }
+    list.push(person);
+    saveStore(store);
+  }
+}
+
+export function removeFavoritePerson(id: number | string): void {
+  const store = loadStore();
+  if (!store.favorites || !store.favorites.people) return;
+  store.favorites.people = store.favorites.people.filter((p) => String(p.id) !== String(id));
   saveStore(store);
 }
 

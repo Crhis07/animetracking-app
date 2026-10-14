@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserFavorites, FavoriteItem, FavoriteCharacter } from '@/lib/types';
-import { getFavorites, removeFavoriteMedia, removeFavoriteCharacter } from '@/lib/store';
+import { UserFavorites } from '@/lib/types';
+import { getFavorites, removeFavoriteMedia, removeFavoriteCharacter, removeFavoritePerson } from '@/lib/store';
 import FavoritesModal from './FavoritesModal';
 
 export default function FavoritesSection() {
-  const [favorites, setFavorites] = useState<UserFavorites>({ animes: [], mangas: [], characters: [] });
+  const [favorites, setFavorites] = useState<UserFavorites>({ animes: [], mangas: [], characters: [], people: [] });
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalTab, setModalTab] = useState<'anime' | 'manga' | 'character'>('anime');
+  const [modalTab, setModalTab] = useState<'anime' | 'manga' | 'character' | 'people'>('anime');
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const refreshFavorites = () => {
@@ -19,7 +19,7 @@ export default function FavoritesSection() {
     refreshFavorites();
   }, []);
 
-  const openModal = (tab: 'anime' | 'manga' | 'character') => {
+  const openModal = (tab: 'anime' | 'manga' | 'character' | 'people') => {
     setModalTab(tab);
     setModalOpen(true);
   };
@@ -36,6 +36,12 @@ export default function FavoritesSection() {
     refreshFavorites();
   };
 
+  const handleRemovePerson = (id: string | number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeFavoritePerson(id);
+    refreshFavorites();
+  };
+
   return (
     <div className="favorites-container-block">
       {/* Top Header */}
@@ -45,7 +51,7 @@ export default function FavoritesSection() {
             <span style={{ color: '#a78bfa' }}>⭐</span> Favorites
           </h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-            Tus animes, mangas y personajes/waifus predilectos
+            Tus animes, mangas, personajes/waifus y seiyuus predilectos
           </p>
         </div>
         <button
@@ -102,7 +108,7 @@ export default function FavoritesSection() {
             </div>
           ))}
 
-          {/* Render remaining empty slots up to 10 if there are fewer */}
+          {/* Empty slots up to 10 */}
           {Array.from({ length: Math.max(0, 10 - favorites.animes.length) }).map((_, i) => (
             <div
               key={`empty-anime-${i}`}
@@ -171,17 +177,17 @@ export default function FavoritesSection() {
       </div>
 
       {/* ───── 3. CHARACTER / WAIFU ROW ───── */}
-      <div className="favorites-category-group" style={{ marginBottom: 0 }}>
+      <div className="favorites-category-group">
         <div className="favorites-category-header">
           <span className="favorites-category-label">
-            Character / Waifus <span style={{ opacity: 0.65 }}>({favorites.characters.length}/10)</span>
+            Character (10) <span style={{ opacity: 0.65 }}>({favorites.characters.length}/10)</span>
           </span>
           {favorites.characters.length < 10 && (
             <button
               className="favorites-add-link"
               onClick={() => openModal('character')}
             >
-              + Añadir Waifu / Personaje
+              + Añadir Personaje / Waifu
             </button>
           )}
         </div>
@@ -223,6 +229,62 @@ export default function FavoritesSection() {
             >
               <span style={{ fontSize: '1.2rem', marginBottom: 2 }}>+</span>
               <span>Waifu</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ───── 4. PEOPLE / SEIYUUS ROW ───── */}
+      <div className="favorites-category-group" style={{ marginBottom: 0 }}>
+        <div className="favorites-category-header">
+          <span className="favorites-category-label">
+            People (10) <span style={{ opacity: 0.65 }}>({(favorites.people?.length || 0)}/10)</span>
+          </span>
+          {(favorites.people?.length || 0) < 10 && (
+            <button
+              className="favorites-add-link"
+              onClick={() => openModal('people')}
+            >
+              + Añadir Seiyuu / Persona
+            </button>
+          )}
+        </div>
+
+        <div className="favorites-row">
+          {(favorites.people || []).map((person) => (
+            <div
+              key={person.id}
+              className="favorite-item-card"
+              onMouseEnter={() => setHoveredItem(`person-${person.id}`)}
+              onMouseLeave={() => setHoveredItem(null)}
+              title={person.name}
+            >
+              <img src={person.image} alt={person.name} className="favorite-item-img" />
+              <div className="favorite-item-overlay">
+                <span className="favorite-item-name">{person.name}</span>
+                <span style={{ fontSize: '0.62rem', color: '#cbd5e1', opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {person.occupations?.[0] || 'Seiyuu'}
+                </span>
+              </div>
+              <button
+                className="favorite-item-del-btn"
+                onClick={(e) => handleRemovePerson(person.id, e)}
+                title="Quitar de favoritos"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+
+          {Array.from({ length: Math.max(0, 10 - (favorites.people?.length || 0)) }).map((_, i) => (
+            <div
+              key={`empty-person-${i}`}
+              className="favorite-empty-slot"
+              onClick={() => openModal('people')}
+              title="Añadir seiyuu o persona favorita"
+            >
+              <span style={{ fontSize: '1.2rem', marginBottom: 2 }}>+</span>
+              <span>Seiyuu</span>
             </div>
           ))}
         </div>

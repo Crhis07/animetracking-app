@@ -52,10 +52,19 @@ export interface FavoriteCharacter {
   mediaTitle?: string | null;
 }
 
+export interface FavoritePerson {
+  id: number | string;
+  name: string;
+  nameNative?: string | null;
+  image: string;
+  occupations?: string[];
+}
+
 export interface UserFavorites {
   animes: FavoriteItem[];
   mangas: FavoriteItem[];
   characters: FavoriteCharacter[];
+  people: FavoritePerson[];
 }
 
 export interface AppStore {

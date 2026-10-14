@@ -1,4 +1,4 @@
-import { JikanAnime, TrackedAnime, FavoriteCharacter } from './types';
+import { JikanAnime, TrackedAnime, FavoriteCharacter, FavoritePerson } from './types';
 
 const ANILIST_URL = 'https://graphql.anilist.co';
 const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
@@ -472,6 +472,61 @@ export async function searchCharacters(query: string): Promise<FavoriteCharacter
     }));
   } catch (err) {
     console.error('Error searching characters:', err);
+    return [];
+  }
+}
+
+// ───── SEIYUU & PEOPLE SEARCH (AniList GraphQL) ─────
+
+export async function searchPeople(query: string): Promise<FavoritePerson[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  try {
+    const res = await fetchWithTimeout(
+      ANILIST_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          query: `query ($search: String) {
+            Page(page: 1, perPage: 12) {
+              staff(search: $search) {
+                id
+                name {
+                  full
+                  native
+                }
+                image {
+                  large
+                }
+                primaryOccupations
+              }
+            }
+          }`,
+          variables: { search: trimmed },
+        }),
+      },
+      5000
+    );
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const staff = json?.data?.Page?.staff || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return staff.map((s: any) => ({
+      id: s.id,
+      name: s.name?.full || 'Sin nombre',
+      nameNative: s.name?.native ?? null,
+      image: s.image?.large || '',
+      occupations: s.primaryOccupations || [],
+    }));
+  } catch (err) {
+    console.error('Error searching people:', err);
     return [];
   }
 }

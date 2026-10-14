@@ -1,37 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { FavoriteItem, FavoriteCharacter, UserFavorites } from '@/lib/types';
+import { FavoriteItem, FavoriteCharacter, FavoritePerson, UserFavorites } from '@/lib/types';
 import {
   getFavorites,
   saveFavorites,
   getAnimes,
   addFavoriteCharacter,
   removeFavoriteCharacter,
+  addFavoritePerson,
+  removeFavoritePerson,
   removeFavoriteMedia,
 } from '@/lib/store';
-import { searchCharacters, searchAnime, searchManga } from '@/lib/jikan';
+import { searchCharacters, searchPeople, searchAnime, searchManga } from '@/lib/jikan';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: 'anime' | 'manga' | 'character';
+  defaultTab?: 'anime' | 'manga' | 'character' | 'people';
   onUpdated: () => void;
 }
 
 export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', onUpdated }: Props) {
-  const [activeTab, setActiveTab] = useState<'anime' | 'manga' | 'character'>(defaultTab);
-  const [favorites, setFavorites] = useState<UserFavorites>({ animes: [], mangas: [], characters: [] });
+  const [activeTab, setActiveTab] = useState<'anime' | 'manga' | 'character' | 'people'>(defaultTab);
+  const [favorites, setFavorites] = useState<UserFavorites>({ animes: [], mangas: [], characters: [], people: [] });
 
   // Search states
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Character search results
+  // Results
   const [characterResults, setCharacterResults] = useState<FavoriteCharacter[]>([]);
-
-  // Online search results for anime/manga
+  const [peopleResults, setPeopleResults] = useState<FavoritePerson[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [mediaOnlineResults, setMediaOnlineResults] = useState<any[]>([]);
 
@@ -41,14 +41,16 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
       setActiveTab(defaultTab);
       setQuery('');
       setCharacterResults([]);
+      setPeopleResults([]);
       setMediaOnlineResults([]);
     }
   }, [isOpen, defaultTab]);
 
-  // Live search for characters / waifus
+  // Live search debounced
   useEffect(() => {
     if (!query.trim()) {
       setCharacterResults([]);
+      setPeopleResults([]);
       setMediaOnlineResults([]);
       return;
     }
@@ -59,6 +61,9 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
         if (activeTab === 'character') {
           const res = await searchCharacters(query);
           setCharacterResults(res);
+        } else if (activeTab === 'people') {
+          const res = await searchPeople(query);
+          setPeopleResults(res);
         } else if (activeTab === 'anime') {
           const res = await searchAnime(query, 1);
           setMediaOnlineResults(res.data || []);
@@ -78,7 +83,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
 
   if (!isOpen) return null;
 
-  // Local tracked items for current tab
+  // Local tracked items for current media tab
   const trackedItems =
     activeTab === 'anime'
       ? getAnimes('anime')
@@ -97,7 +102,9 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
       ? favorites.animes.length
       : activeTab === 'manga'
       ? favorites.mangas.length
-      : favorites.characters.length;
+      : activeTab === 'character'
+      ? favorites.characters.length
+      : (favorites.people?.length || 0);
 
   const handleAddMedia = (item: {
     malId: number;
@@ -159,13 +166,35 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
     onUpdated();
   };
 
+  const handleAddPerson = (person: FavoritePerson) => {
+    const favs = getFavorites();
+    if ((favs.people || []).some((p) => String(p.id) === String(person.id))) return;
+
+    if ((favs.people || []).length >= 10) {
+      alert('Ya tienes 10 seiyuus/personas favoritas. Elimina una primero para añadir otra.');
+      return;
+    }
+
+    addFavoritePerson(person);
+    const updated = getFavorites();
+    setFavorites(updated);
+    onUpdated();
+  };
+
+  const handleRemovePerson = (id: string | number) => {
+    removeFavoritePerson(id);
+    const updated = getFavorites();
+    setFavorites(updated);
+    onUpdated();
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-box"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: 680,
+          maxWidth: 720,
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
@@ -179,7 +208,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
               <span>⭐</span> Gestionar Favoritos (Top 10)
             </h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Elige tus obras y waifus más representativas para tu perfil
+              Elige tus obras, personajes, waifus y seiyuus preferidos para tu perfil
             </p>
           </div>
           <button
@@ -202,27 +231,34 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
         </div>
 
         {/* Category Tabs */}
-        <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: 10, flexWrap: 'wrap' }}>
           <button
             className={`btn ${activeTab === 'anime' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => { setActiveTab('anime'); setQuery(''); }}
-            style={{ fontSize: '0.84rem', padding: '6px 14px' }}
+            style={{ fontSize: '0.82rem', padding: '6px 12px' }}
           >
-            🎬 Animes ({favorites.animes.length}/10)
+            🎬 Anime ({favorites.animes.length}/10)
           </button>
           <button
             className={`btn ${activeTab === 'manga' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => { setActiveTab('manga'); setQuery(''); }}
-            style={{ fontSize: '0.84rem', padding: '6px 14px' }}
+            style={{ fontSize: '0.82rem', padding: '6px 12px' }}
           >
-            📖 Mangas ({favorites.mangas.length}/10)
+            📖 Manga ({favorites.mangas.length}/10)
           </button>
           <button
             className={`btn ${activeTab === 'character' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => { setActiveTab('character'); setQuery(''); }}
-            style={{ fontSize: '0.84rem', padding: '6px 14px' }}
+            style={{ fontSize: '0.82rem', padding: '6px 12px' }}
           >
-            💖 Waifus / Personajes ({favorites.characters.length}/10)
+            💖 Character ({favorites.characters.length}/10)
+          </button>
+          <button
+            className={`btn ${activeTab === 'people' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setActiveTab('people'); setQuery(''); }}
+            style={{ fontSize: '0.82rem', padding: '6px 12px' }}
+          >
+            🎙️ People / Seiyuus ({favorites.people?.length || 0}/10)
           </button>
         </div>
 
@@ -263,7 +299,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
                       fontSize: '0.7rem',
                       cursor: 'pointer',
                     }}
-                    title="Quitar de favoritos"
+                    title="Quitar"
                   >
                     ✕
                   </button>
@@ -301,7 +337,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
                       fontSize: '0.7rem',
                       cursor: 'pointer',
                     }}
-                    title="Quitar de favoritos"
+                    title="Quitar"
                   >
                     ✕
                   </button>
@@ -339,7 +375,45 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
                       fontSize: '0.7rem',
                       cursor: 'pointer',
                     }}
-                    title="Quitar de favoritos"
+                    title="Quitar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+            {activeTab === 'people' &&
+              (favorites.people || []).map((person) => (
+                <div
+                  key={person.id}
+                  style={{
+                    position: 'relative',
+                    width: 58,
+                    height: 82,
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                  }}
+                  title={person.name}
+                >
+                  <img src={person.image} alt={person.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button
+                    onClick={() => handleRemovePerson(person.id)}
+                    style={{
+                      position: 'absolute',
+                      top: 2,
+                      right: 2,
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.8)',
+                      color: '#f87171',
+                      border: 'none',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                    }}
+                    title="Quitar"
                   >
                     ✕
                   </button>
@@ -348,7 +422,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
 
             {currentCount === 0 && (
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '10px 0' }}>
-                Aún no has seleccionado ningún favorito. ¡Añade algunos abajo!
+                Aún no has seleccionado ningún favorito en esta categoría.
               </span>
             )}
           </div>
@@ -361,7 +435,9 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
             className="input-search"
             placeholder={
               activeTab === 'character'
-                ? 'Buscar waifu o personaje (ej. Echidna, Marin, Sumi, Sinbad)...'
+                ? 'Buscar waifu o personaje (ej. Echidna, Marin Kitagawa, Sumi)...'
+                : activeTab === 'people'
+                ? 'Buscar seiyuu o actor de voz (ej. Kaede Hondo, Hiro Shimono, Rie Takahashi)...'
                 : `Buscar en tu lista o escribir para buscar online...`
             }
             value={query}
@@ -375,7 +451,73 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
         <div style={{ flex: 1, overflowY: 'auto', maxHeight: 360, minHeight: 220, paddingRight: 4 }}>
           {loading && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
-              Buscando...
+              Buscando en la base de datos...
+            </div>
+          )}
+
+          {/* PEOPLE / SEIYUUS RESULTS */}
+          {activeTab === 'people' && !loading && (
+            <div>
+              {peopleResults.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+                  {peopleResults.map((person) => {
+                    const isAdded = (favorites.people || []).some((p) => String(p.id) === String(person.id));
+                    return (
+                      <div
+                        key={person.id}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: 8,
+                          padding: 8,
+                          display: 'flex',
+                          gap: 10,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <img
+                          src={person.image}
+                          alt={person.name}
+                          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4 }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {person.name}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {person.occupations?.[0] || 'Seiyuu / Actor'}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => (isAdded ? handleRemovePerson(person.id) : handleAddPerson(person))}
+                            style={{
+                              marginTop: 4,
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: isAdded ? 'rgba(239, 68, 68, 0.2)' : 'linear-gradient(135deg, #0284c7, #38bdf8)',
+                              color: isAdded ? '#f87171' : '#ffffff',
+                              border: isAdded ? '1px solid #ef4444' : 'none',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isAdded ? 'Quitar' : '+ Añadir'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : query.trim() ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>
+                  No se encontraron seiyuus con &quot;{query}&quot;.
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                  Escribe el nombre de tu seiyuu favorito en el buscador arriba (ej: <strong>Kaede Hondo</strong>, <strong>Hiro Shimono</strong>, <strong>Rie Takahashi</strong>, <strong>Saori Hayami</strong>).
+                </div>
+              )}
             </div>
           )}
 
@@ -383,7 +525,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
           {activeTab === 'character' && !loading && (
             <div>
               {characterResults.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
                   {characterResults.map((char) => {
                     const isAdded = favorites.characters.some((c) => String(c.id) === String(char.id));
                     return (
@@ -446,7 +588,7 @@ export default function FavoritesModal({ isOpen, onClose, defaultTab = 'anime', 
           )}
 
           {/* ANIME / MANGA RESULTS */}
-          {activeTab !== 'character' && !loading && (
+          {(activeTab === 'anime' || activeTab === 'manga') && !loading && (
             <div>
               {/* From Tracked Library */}
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
