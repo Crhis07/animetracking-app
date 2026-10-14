@@ -170,26 +170,62 @@ export function importStoreJSON(json: string): { success: boolean; count: number
 
 // ───── STATS ─────
 
+export type StatScope = 'all' | 'anime' | 'manga';
+
 export interface AnimeStats {
-  totalAnimes: number;
-  totalAnime: number;
-  totalManga: number;
+  scope: StatScope;
+  totalAnimes: number; // Total items in library
+  totalAnime: number;  // Total anime items
+  totalManga: number;  // Total manga items
+  activeTotal: number; // Items in active scope
   byStatus: Record<AnimeStatus, number>;
   byStatusAnime: Record<AnimeStatus, number>;
   byStatusManga: Record<AnimeStatus, number>;
   totalEpisodesWatched: number;
   totalHoursWatched: number;
+  totalDaysWatched: number;
   totalChaptersRead: number;
   totalVolumesRead: number;
   averageScore: number | null;
-  topGenres: Array<{ genre: string; count: number }>;
+  topGenres: Array<{ genre: string; count: number; pct: number }>;
   completionRate: number;
   meanEpisodesPerAnime: number;
-  scoreDist: Array<{ score: number; count: number }>;
+  scoreDist: Array<{ score: number; count: number; pct: number }>;
+  bestRatedCount: number;
+  mostFrequentScore: { score: number; count: number } | null;
+  otakuTitle: string;
+  otakuRank: string;
 }
 
-export function computeStats(): AnimeStats {
-  const animes = loadStore().animes;
+export function computeStats(scope: StatScope = 'all'): AnimeStats {
+  const allItems = loadStore().animes;
+
+  let totalAnimeCount = 0;
+  let totalMangaCount = 0;
+  const byStatusAnime: Record<AnimeStatus, number> = {
+    watching: 0, completed: 0, planned: 0, on_hold: 0, dropped: 0,
+  };
+  const byStatusManga: Record<AnimeStatus, number> = {
+    watching: 0, completed: 0, planned: 0, on_hold: 0, dropped: 0,
+  };
+
+  for (const item of allItems) {
+    if (item.kind === 'manga') {
+      totalMangaCount++;
+      byStatusManga[item.status]++;
+    } else {
+      totalAnimeCount++;
+      byStatusAnime[item.status]++;
+    }
+  }
+
+  // Filter items based on active scope
+  const targetItems = allItems.filter((item) => {
+    if (scope === 'anime') return (item.kind ?? 'anime') === 'anime';
+    if (scope === 'manga') return item.kind === 'manga';
+    return true;
+  });
+
   const byStatus: Record<AnimeStatus, number> = {
     watching: 0,
     completed: 0,
@@ -197,73 +233,115 @@ export function computeStats(): AnimeStats {
     on_hold: 0,
     dropped: 0,
   };
-  const byStatusAnime: Record<AnimeStatus, number> = { ...byStatus };
-  const byStatusManga: Record<AnimeStatus, number> = { ...byStatus };
 
   let totalEpisodesWatched = 0;
   let totalMinutes = 0;
   let totalChaptersRead = 0;
   let totalVolumesRead = 0;
-  let totalAnimeCount = 0;
-  let totalMangaCount = 0;
   const scores: number[] = [];
   const genreMap: Record<string, number> = {};
   const scoreMap: Record<number, number> = {};
 
-  for (const item of animes) {
-    const isManga = item.kind === 'manga';
+  for (const item of targetItems) {
     byStatus[item.status]++;
+    const isManga = item.kind === 'manga';
+
     if (isManga) {
-      totalMangaCount++;
-      byStatusManga[item.status]++;
       totalChaptersRead += item.currentChapter ?? 0;
       totalVolumesRead += item.currentVolume ?? 0;
     } else {
-      totalAnimeCount++;
-      byStatusAnime[item.status]++;
       totalEpisodesWatched += item.currentEpisode ?? 0;
       totalMinutes += (item.currentEpisode ?? 0) * (item.duration ?? 24);
     }
 
-    if (item.score !== null) {
+    if (item.score !== null && item.score > 0) {
       scores.push(item.score);
       scoreMap[item.score] = (scoreMap[item.score] ?? 0) + 1;
     }
 
-    for (const genre of item.genres) {
+    for (const genre of item.genres || []) {
       genreMap[genre] = (genreMap[genre] ?? 0) + 1;
     }
   }
 
+  const activeCount = targetItems.length;
+
   const topGenres = Object.entries(genreMap)
-    .map(([genre, count]) => ({ genre, count }))
+    .map(([genre, count]) => ({
+      genre,
+      count,
+      pct: activeCount > 0 ? Math.round((count / activeCount) * 100) : 0,
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
-  const scoreDist = Array.from({ length: 10 }, (_, i) => ({
-    score: i + 1,
-    count: scoreMap[i + 1] ?? 0,
-  }));
+  const ratedCount = scores.length;
+  const scoreDist = Array.from({ length: 10 }, (_, i) => {
+    const score = i + 1;
+    const count = scoreMap[score] ?? 0;
+    return {
+      score,
+      count,
+      pct: ratedCount > 0 ? Math.round((count / ratedCount) * 100) : 0,
+    };
+  });
 
+  let mostFrequentScore: { score: number; count: number } | null = null;
+  for (const s of scoreDist) {
+    if (s.count > 0 && (!mostFrequentScore || s.count > mostFrequentScore.count)) {
+      mostFrequentScore = { score: s.score, count: s.count };
+    }
+  }
+
+  const bestRatedCount = scores.filter((s) => s >= 9).length;
   const completed = byStatus.completed;
-  const total = animes.filter((a) => a.status !== 'planned').length;
+  const totalNonPlanned = targetItems.filter((a) => a.status !== 'planned').length;
+
+  const totalHours = Math.round(totalMinutes / 60);
+  const totalDays = Math.round((totalHours / 24) * 10) / 10;
+
+  // Otaku Level Titles
+  let otakuTitle = 'Iniciado del Anime & Manga';
+  let otakuRank = '🌱 Rango Novato';
+
+  if (totalHours >= 3000 || totalEpisodesWatched >= 8000 || totalChaptersRead >= 3500) {
+    otakuTitle = 'Sensei Supremo del Anime';
+    otakuRank = '👑 Rango Divino';
+  } else if (totalHours >= 1500 || totalEpisodesWatched >= 4000 || totalChaptersRead >= 2000) {
+    otakuTitle = 'Otaku Legendario';
+    otakuRank = '🏆 Rango Maestro';
+  } else if (totalHours >= 500 || totalEpisodesWatched >= 1500 || totalChaptersRead >= 800) {
+    otakuTitle = 'Veterano Consagrado';
+    otakuRank = '⭐ Rango Veterano';
+  } else if (totalHours >= 100 || totalEpisodesWatched >= 300 || totalChaptersRead >= 200) {
+    otakuTitle = 'Aficionado Dedicado';
+    otakuRank = '🌸 Rango Intermedio';
+  }
 
   return {
-    totalAnimes: animes.length,
+    scope,
+    totalAnimes: allItems.length,
     totalAnime: totalAnimeCount,
     totalManga: totalMangaCount,
+    activeTotal: activeCount,
     byStatus,
     byStatusAnime,
     byStatusManga,
     totalEpisodesWatched,
-    totalHoursWatched: Math.round(totalMinutes / 60),
+    totalHoursWatched: totalHours,
+    totalDaysWatched: totalDays,
     totalChaptersRead,
     totalVolumesRead,
-    averageScore: scores.length > 0 ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 10) / 10 : null,
+    averageScore:
+      scores.length > 0 ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 10) / 10 : null,
     topGenres,
-    completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    completionRate: totalNonPlanned > 0 ? Math.round((completed / totalNonPlanned) * 100) : 0,
     meanEpisodesPerAnime:
       totalAnimeCount > 0 ? Math.round(totalEpisodesWatched / totalAnimeCount) : 0,
     scoreDist,
+    bestRatedCount,
+    mostFrequentScore,
+    otakuTitle,
+    otakuRank,
   };
 }
