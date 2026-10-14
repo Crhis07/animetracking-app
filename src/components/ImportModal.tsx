@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { importFromAniList } from '@/lib/anilist';
-import { parseMALXML, enrichWithJikan } from '@/lib/mal-import';
+import { parseMALXML } from '@/lib/mal-import';
+import { batchFetchCovers } from '@/lib/covers';
 import { upsertAnime, exportStoreJSON, importStoreJSON, getAnimes } from '@/lib/store';
 
 interface Props {
@@ -30,7 +31,6 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
     onImportSuccess?.();
   };
 
-  // Prevent background scroll
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -58,7 +58,7 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
       return;
     }
 
-    // Save all entries immediately
+    // Save initial items
     const existing = getAnimes();
     let added = 0;
     for (const entry of entries) {
@@ -77,25 +77,36 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
 
     setResult({
       type: 'info',
-      msg: `✓ ${total} ${kindLabel} importados de ${userInfo?.username ?? 'MAL'} (${added} nuevos). Descargando portadas...`,
+      msg: `Descargando portadas en alta definición para tus ${total} ${kindLabel}...`,
     });
     notifySuccess();
 
-    // Enrich first 30 entries with Jikan (cover images, genres, etc.)
-    setEnrichProgress({ done: 0, total: Math.min(entries.length, 30) });
-    const enriched = await enrichWithJikan(entries, 30, (done, total) => {
-      setEnrichProgress({ done, total });
+    // Fast batch fetch of all covers via AniList API
+    setEnrichProgress({ done: 0, total: entries.length });
+    const coverMap = await batchFetchCovers(entries, (done, totalItems) => {
+      setEnrichProgress({ done, total: totalItems });
     });
 
-    for (const entry of enriched) {
-      upsertAnime(entry);
+    // Apply covers to store
+    for (const entry of entries) {
+      const key = `${entry.kind ?? 'anime'}-${entry.malId}`;
+      const meta = coverMap.get(key);
+      if (meta) {
+        upsertAnime({
+          ...entry,
+          coverImage: meta.cover || entry.coverImage,
+          genres: meta.genres.length > 0 ? meta.genres : entry.genres,
+          synopsis: meta.synopsis || entry.synopsis,
+          airingStatus: meta.status || entry.airingStatus,
+        });
+      }
     }
 
     notifySuccess();
     setEnrichProgress(null);
     setResult({
       type: 'success',
-      msg: `✅ Lista de MyAnimeList importada: ${total} ${kindLabel} (${added} nuevos). Portadas listas para los primeros ${Math.min(entries.length, 30)}.`,
+      msg: `✅ ¡Lista de ${kindLabel} importada exitosamente! ${total} ${kindLabel} registrados con sus portadas e información.`,
     });
     setLoading(false);
   };
@@ -184,22 +195,21 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
           {/* ─── MAL XML Tab ─── */}
           {tab === 'mal' && (
             <div>
-              {/* Step by step guide */}
               <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 18, fontSize: '0.83rem', lineHeight: 1.7 }}>
                 <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span>📥</span> Cómo importar Anime y Manga de MyAnimeList:
                 </div>
                 <ol style={{ paddingLeft: 20, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <li>Entra en <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener" style={{ color: 'var(--primary)' }}>myanimelist.net/panel.php?go=export</a> (con tu sesión iniciada)</li>
+                  <li>Entra en <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener" style={{ color: 'var(--primary)' }}>myanimelist.net/panel.php?go=export</a> (iniciando sesión en MAL)</li>
                   <li>
-                    Descarga tu lista haciendo clic en:
+                    Descarga el archivo que quieras:
                     <div style={{ marginTop: 4, display: 'flex', gap: 8 }}>
                       <span style={{ background: 'var(--bg-glass)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>🎬 "Export Anime List"</span>
                       <span style={{ background: 'var(--bg-glass)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>📖 "Export Manga List"</span>
                     </div>
                   </li>
-                  <li>Si se descarga como <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml.gz</code>, descomprímelo para obtener el <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml</code></li>
-                  <li>¡Sube tu archivo abajo! (Puedes subir uno y luego el otro sin que se borre nada)</li>
+                  <li>Si se descarga como <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml.gz</code>, descomprímelo con 7-Zip o WinRAR para sacar el <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml</code></li>
+                  <li>Sube tu archivo abajo. <strong>¡Puedes subir primero tus animes y luego tus mangas!</strong> Cada uno se guarda en su panel correspondiente sin borrarse.</li>
                 </ol>
               </div>
 
@@ -230,16 +240,16 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
                 )}
               </div>
 
-              {/* Enrich progress */}
+              {/* Progress */}
               {enrichProgress && (
                 <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Descargando portadas e info... ({enrichProgress.done}/{enrichProgress.total})
+                    Descargando portadas e información... ({enrichProgress.done} de {enrichProgress.total})
                   </div>
                   <div className="ep-track" style={{ height: 6 }}>
                     <div
                       className="ep-fill"
-                      style={{ width: `${(enrichProgress.done / enrichProgress.total) * 100}%`, transition: 'width 0.3s' }}
+                      style={{ width: `${enrichProgress.total ? (enrichProgress.done / enrichProgress.total) * 100 : 0}%`, transition: 'width 0.3s' }}
                     />
                   </div>
                 </div>
