@@ -41,19 +41,31 @@ export default function StatsPage() {
         </div>
 
         {stats.totalAnimes === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
+          <>
+            <div className="empty-state" style={{ marginBottom: 28 }}>
+              <div className="empty-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+              </div>
+              <div className="empty-title">Aún no hay animes o mangas en este dispositivo</div>
+              <div className="empty-subtitle">
+                Los datos se guardan de forma local en tu navegador. Si ya tienes tu lista en tu PC, ve a Ajustes en tu PC, pulsa &quot;Exportar backup&quot; y cárgalo aquí en Ajustes para sincronizar tus {stats.totalAnime || ''} obras en segundos.
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+                <a href="/settings" className="btn btn-primary">
+                  Ir a Ajustes / Importar Backup
+                </a>
+                <a href="/search" className="btn btn-secondary">
+                  Buscar anime o manga
+                </a>
+              </div>
             </div>
-            <div className="empty-title">Aún no hay estadísticas registradas</div>
-            <div className="empty-subtitle">Importa tu lista de MyAnimeList o añade títulos desde el buscador para desbloquear tu dashboard.</div>
-            <a href="/search" className="btn btn-primary" style={{ marginTop: 14 }}>
-              Buscar anime o manga
-            </a>
-          </div>
+
+            {/* Favorites is always accessible */}
+            <FavoritesSection />
+          </>
         ) : (
           <>
             {/* Otaku Profile Hero Banner */}
