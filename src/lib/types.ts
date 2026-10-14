@@ -35,8 +35,32 @@ export interface TrackedAnime {
   airingStatus: string;    // 'Airing', 'Finished', 'Publishing', etc.
 }
 
+export interface FavoriteItem {
+  id: number;
+  malId: number;
+  title: string;
+  image: string;
+  kind: 'anime' | 'manga';
+  score?: number | null;
+}
+
+export interface FavoriteCharacter {
+  id: number | string;
+  name: string;
+  nameNative?: string | null;
+  image: string;
+  mediaTitle?: string | null;
+}
+
+export interface UserFavorites {
+  animes: FavoriteItem[];
+  mangas: FavoriteItem[];
+  characters: FavoriteCharacter[];
+}
+
 export interface AppStore {
   animes: TrackedAnime[];
+  favorites?: UserFavorites;
   version: number;
   lastExport: string | null;
 }

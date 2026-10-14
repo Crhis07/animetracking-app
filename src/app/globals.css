@@ -1840,4 +1840,208 @@ ul, ol { list-style: none; }
   color: #f8fafc;
 }
 
+/* ═══════════════════════════════════════════
+   FAVORITES (ANIME, MANGA, WAIFUS)
+═══════════════════════════════════════════ */
+
+.favorites-container-block {
+  background: rgba(18, 22, 38, 0.65);
+  border: 1px solid rgba(99, 120, 220, 0.18);
+  border-radius: var(--r-xl);
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.favorites-main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.favorites-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.favorites-category-group {
+  margin-bottom: 22px;
+}
+
+.favorites-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.favorites-category-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.favorites-add-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #818cf8;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.favorites-add-link:hover {
+  color: #a5b4fc;
+  text-decoration: underline;
+}
+
+.favorites-row {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
+  .favorites-row {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+  }
+}
+
+.favorite-item-card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111422;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .favorite-item-card {
+    min-width: 90px;
+    width: 90px;
+    flex-shrink: 0;
+  }
+}
+
+.favorite-item-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(139, 92, 246, 0.35);
+  z-index: 2;
+}
+
+.favorite-item-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.favorite-item-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 6px 6px 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.5) 70%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+  opacity: 0.95;
+  transition: opacity 0.2s;
+}
+
+.favorite-item-card:hover .favorite-item-overlay {
+  opacity: 1;
+}
+
+.favorite-item-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.favorite-item-del-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #f87171;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  z-index: 3;
+}
+
+.favorite-item-card:hover .favorite-item-del-btn {
+  opacity: 1;
+}
+
+.favorite-item-del-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.favorite-empty-slot {
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  border: 2px dashed rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 1024px) {
+  .favorite-empty-slot {
+    min-width: 90px;
+    width: 90px;
+    flex-shrink: 0;
+  }
+}
+
+.favorite-empty-slot:hover {
+  border-color: #8b5cf6;
+  color: #e2e8f0;
+  background: rgba(139, 92, 246, 0.08);
+  transform: translateY(-2px);
+}
+
+
 

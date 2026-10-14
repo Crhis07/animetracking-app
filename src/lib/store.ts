@@ -1,4 +1,4 @@
-import { AppStore, TrackedAnime, AnimeStatus, MediaKind } from './types';
+import { AppStore, TrackedAnime, AnimeStatus, MediaKind, FavoriteItem, FavoriteCharacter, UserFavorites } from './types';
 
 const STORE_KEY = 'animelist_v1';
 const STORE_VERSION = 1;
@@ -6,6 +6,11 @@ const STORE_VERSION = 1;
 function getDefaultStore(): AppStore {
   return {
     animes: [],
+    favorites: {
+      animes: [],
+      mangas: [],
+      characters: [],
+    },
     version: STORE_VERSION,
     lastExport: null,
   };
@@ -166,6 +171,88 @@ export function importStoreJSON(json: string): { success: boolean; count: number
   } catch {
     return { success: false, count: 0, error: 'El archivo no es un JSON válido.' };
   }
+}
+
+// ───── FAVORITES ─────
+
+export function getFavorites(): UserFavorites {
+  const store = loadStore();
+  if (!store.favorites) {
+    return { animes: [], mangas: [], characters: [] };
+  }
+  return {
+    animes: Array.isArray(store.favorites.animes) ? store.favorites.animes : [],
+    mangas: Array.isArray(store.favorites.mangas) ? store.favorites.mangas : [],
+    characters: Array.isArray(store.favorites.characters) ? store.favorites.characters : [],
+  };
+}
+
+export function saveFavorites(favorites: UserFavorites): void {
+  const store = loadStore();
+  store.favorites = favorites;
+  saveStore(store);
+}
+
+export function toggleFavoriteMedia(item: FavoriteItem): boolean {
+  const store = loadStore();
+  if (!store.favorites) {
+    store.favorites = { animes: [], mangas: [], characters: [] };
+  }
+  const isManga = item.kind === 'manga';
+  const list = isManga ? (store.favorites.mangas ??= []) : (store.favorites.animes ??= []);
+  const index = list.findIndex((x) => x.malId === item.malId);
+
+  if (index >= 0) {
+    list.splice(index, 1);
+    saveStore(store);
+    return false; // removed
+  } else {
+    if (list.length >= 10) {
+      list.shift(); // keep max 10
+    }
+    list.push(item);
+    saveStore(store);
+    return true; // added
+  }
+}
+
+export function isFavoriteMedia(malId: number, kind: 'anime' | 'manga'): boolean {
+  const favs = getFavorites();
+  const list = kind === 'manga' ? favs.mangas : favs.animes;
+  return list.some((x) => x.malId === malId);
+}
+
+export function removeFavoriteMedia(malId: number, kind: 'anime' | 'manga'): void {
+  const store = loadStore();
+  if (!store.favorites) return;
+  if (kind === 'manga' && store.favorites.mangas) {
+    store.favorites.mangas = store.favorites.mangas.filter((x) => x.malId !== malId);
+  } else if (store.favorites.animes) {
+    store.favorites.animes = store.favorites.animes.filter((x) => x.malId !== malId);
+  }
+  saveStore(store);
+}
+
+export function addFavoriteCharacter(char: FavoriteCharacter): void {
+  const store = loadStore();
+  if (!store.favorites) {
+    store.favorites = { animes: [], mangas: [], characters: [] };
+  }
+  const list = (store.favorites.characters ??= []);
+  if (!list.some((c) => String(c.id) === String(char.id))) {
+    if (list.length >= 10) {
+      list.shift();
+    }
+    list.push(char);
+    saveStore(store);
+  }
+}
+
+export function removeFavoriteCharacter(id: number | string): void {
+  const store = loadStore();
+  if (!store.favorites || !store.favorites.characters) return;
+  store.favorites.characters = store.favorites.characters.filter((c) => String(c.id) !== String(id));
+  saveStore(store);
 }
 
 // ───── STATS ─────

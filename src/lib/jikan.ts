@@ -1,4 +1,4 @@
-import { JikanAnime, TrackedAnime } from './types';
+import { JikanAnime, TrackedAnime, FavoriteCharacter } from './types';
 
 const ANILIST_URL = 'https://graphql.anilist.co';
 const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
@@ -413,3 +413,66 @@ export function jikanMangaToTracked(manga: JikanAnime): TrackedAnime {
     airingStatus: manga.status ?? '',
   };
 }
+
+// ───── CHARACTER & WAIFU SEARCH (AniList GraphQL) ─────
+
+export async function searchCharacters(query: string): Promise<FavoriteCharacter[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  try {
+    const res = await fetchWithTimeout(
+      ANILIST_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          query: `query ($search: String) {
+            Page(page: 1, perPage: 12) {
+              characters(search: $search) {
+                id
+                name {
+                  full
+                  native
+                }
+                image {
+                  large
+                }
+                media(perPage: 1) {
+                  nodes {
+                    title {
+                      romaji
+                      english
+                    }
+                  }
+                }
+              }
+            }
+          }`,
+          variables: { search: trimmed },
+        }),
+      },
+      5000
+    );
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const characters = json?.data?.Page?.characters || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return characters.map((c: any) => ({
+      id: c.id,
+      name: c.name?.full || 'Sin nombre',
+      nameNative: c.name?.native ?? null,
+      image: c.image?.large || '',
+      mediaTitle: c.media?.nodes?.[0]?.title?.romaji || c.media?.nodes?.[0]?.title?.english || null,
+    }));
+  } catch (err) {
+    console.error('Error searching characters:', err);
+    return [];
+  }
+}
+

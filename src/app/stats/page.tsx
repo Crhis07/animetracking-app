@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import { computeStats } from '@/lib/store';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_COLORS } from '@/lib/types';
 import type { AnimeStats, StatScope } from '@/lib/store';
+import FavoritesSection from '@/components/FavoritesSection';
 
 export default function StatsPage() {
   const [scope, setScope] = useState<StatScope>('all');
@@ -504,6 +505,9 @@ export default function StatsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Favorites Section (Anime, Manga, Waifus) */}
+            <FavoritesSection />
 
             {/* Fun Fact / Insights Banner */}
             <div className="stats-fun-facts">

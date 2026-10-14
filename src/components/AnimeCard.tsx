@@ -10,6 +10,8 @@ import {
   updateStatus,
   updateNotes,
   removeAnime,
+  toggleFavoriteMedia,
+  isFavoriteMedia,
 } from '@/lib/store';
 
 interface Props {
@@ -101,6 +103,7 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
 
   const kind = anime.kind ?? 'anime';
   const isManga = kind === 'manga';
+  const [isFav, setIsFav] = useState(() => isFavoriteMedia(anime.malId, isManga ? 'manga' : 'anime'));
 
   const totalUnits = isManga ? anime.totalChapters : anime.totalEpisodes;
   const currentUnits = isManga ? (anime.currentChapter ?? 0) : anime.currentEpisode;
@@ -424,29 +427,65 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
                     </span>
                   </div>
 
-                  {/* High Contrast Close "X" Button */}
-                  <button
-                    type="button"
-                    onClick={() => setShowDetail(false)}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      color: '#ffffff',
-                      borderRadius: '50%',
-                      width: 32,
-                      height: 32,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: 700,
-                      transition: 'all 0.2s',
-                    }}
-                    title="Cerrar ventana"
-                  >
-                    ✕
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Favorite Heart Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = toggleFavoriteMedia({
+                          id: anime.id,
+                          malId: anime.malId,
+                          title: anime.title,
+                          image: anime.coverImage,
+                          kind: isManga ? 'manga' : 'anime',
+                          score: anime.score,
+                        });
+                        setIsFav(nextState);
+                      }}
+                      style={{
+                        background: isFav ? 'rgba(236, 72, 153, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                        border: isFav ? '1px solid #ec4899' : '1px solid rgba(255, 255, 255, 0.18)',
+                        color: isFav ? '#f472b6' : '#cbd5e1',
+                        borderRadius: 8,
+                        padding: '4px 10px',
+                        cursor: 'pointer',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        transition: 'all 0.2s',
+                      }}
+                      title={isFav ? 'Quitar de Favoritos (Top 10)' : 'Marcar como Favorito (Top 10)'}
+                    >
+                      <span>{isFav ? '💖' : '🤍'}</span>
+                      <span>{isFav ? 'En Favoritos' : 'Añadir a Favoritos'}</span>
+                    </button>
+
+                    {/* High Contrast Close "X" Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowDetail(false)}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        color: '#ffffff',
+                        borderRadius: '50%',
+                        width: 32,
+                        height: 32,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        transition: 'all 0.2s',
+                      }}
+                      title="Cerrar ventana"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
                 <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 4 }}>
