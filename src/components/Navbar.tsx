@@ -53,18 +53,18 @@ export default function Navbar() {
     <nav className="navbar">
       {/* Brand with Waifu Logo */}
       <Link href="/list" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
+        <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.jpg"
             alt="AniTrack Waifu Logo"
             style={{
-              width: 38,
-              height: 38,
+              width: 44,
+              height: 44,
               borderRadius: '50%',
               objectFit: 'cover',
-              border: '2px solid rgba(236, 72, 153, 0.7)',
-              boxShadow: '0 0 14px rgba(236, 72, 153, 0.4), 0 0 20px rgba(99, 102, 241, 0.3)',
+              border: '2px solid rgba(236, 72, 153, 0.8)',
+              boxShadow: '0 0 16px rgba(236, 72, 153, 0.5), 0 0 25px rgba(99, 102, 241, 0.35)',
             }}
           />
         </div>
