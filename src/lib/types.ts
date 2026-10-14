@@ -1,22 +1,29 @@
 export type AnimeStatus = 'watching' | 'completed' | 'planned' | 'on_hold' | 'dropped';
+export type MediaKind = 'anime' | 'manga';
 
 export interface TrackedAnime {
   id: number;              // MAL ID
   malId: number;
+  kind?: MediaKind;        // 'anime' | 'manga' (defaults to 'anime')
   title: string;
   titleEnglish: string | null;
   titleJapanese: string | null;
   coverImage: string;
   totalEpisodes: number | null;
   currentEpisode: number;
-  status: AnimeStatus;
-  score: number | null;    // 1-10, null = no rated
+  // Manga-specific progress
+  totalChapters?: number | null;
+  currentChapter?: number;
+  totalVolumes?: number | null;
+  currentVolume?: number;
+  status: AnimeStatus;     // for manga: 'watching' means 'reading'
+  score: number | null;    // 1-10, null = unrated
   notes: string;
   genres: string[];
   year: number | null;
   season: string | null;
-  type: string;            // TV, Movie, OVA, etc.
-  duration: number | null; // minutes per episode
+  type: string;            // TV, Movie, Manga, Light Novel, Manhwa, etc.
+  duration: number | null; // minutes per episode (anime)
   synopsis: string;
   addedAt: string;         // ISO date
   updatedAt: string;       // ISO date
@@ -25,7 +32,7 @@ export interface TrackedAnime {
   source: 'mal' | 'anilist' | 'manual';
   anilistId: number | null;
   malScore: number | null; // Community score
-  airingStatus: string;    // 'Airing', 'Finished Airing', etc.
+  airingStatus: string;    // 'Airing', 'Finished', 'Publishing', etc.
 }
 
 export interface AppStore {
@@ -43,16 +50,19 @@ export interface JikanAnime {
     jpg: { image_url: string; large_image_url: string };
     webp: { image_url: string; large_image_url: string };
   };
-  episodes: number | null;
+  episodes?: number | null;
+  chapters?: number | null;
+  volumes?: number | null;
   status: string;
   score: number | null;
   genres: Array<{ mal_id: number; name: string }>;
   year: number | null;
   season: string | null;
   type: string;
-  duration: string | null;
+  duration?: string | null;
   synopsis: string | null;
-  aired: { from: string | null };
+  aired?: { from: string | null };
+  published?: { from: string | null };
 }
 
 export interface AniListEntry {
@@ -62,6 +72,8 @@ export interface AniListEntry {
     title: { romaji: string; english: string | null; native: string | null };
     coverImage: { large: string };
     episodes: number | null;
+    chapters?: number | null;
+    volumes?: number | null;
     genres: string[];
     startDate: { year: number | null };
     season: string | null;
@@ -74,6 +86,7 @@ export interface AniListEntry {
   status: string;
   score: number;
   progress: number;
+  progressVolumes?: number;
   notes: string | null;
   startedAt: { year: number | null; month: number | null; day: number | null };
   completedAt: { year: number | null; month: number | null; day: number | null };
@@ -86,6 +99,21 @@ export const STATUS_LABELS: Record<AnimeStatus, string> = {
   on_hold: 'En Espera',
   dropped: 'Dropeado',
 };
+
+export const STATUS_LABELS_MANGA: Record<AnimeStatus, string> = {
+  watching: 'Leyendo',
+  completed: 'Completado',
+  planned: 'Por Leer',
+  on_hold: 'En Espera',
+  dropped: 'Dropeado',
+};
+
+export function getStatusLabel(status: AnimeStatus, kind?: MediaKind): string {
+  if (kind === 'manga') {
+    return STATUS_LABELS_MANGA[status] ?? STATUS_LABELS[status];
+  }
+  return STATUS_LABELS[status];
+}
 
 export const STATUS_COLORS: Record<AnimeStatus, string> = {
   watching: '#4ade80',

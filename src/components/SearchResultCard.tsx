@@ -1,20 +1,22 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { TrackedAnime } from '@/lib/types';
+import { TrackedAnime, MediaKind, JikanAnime } from '@/lib/types';
 import { upsertAnime } from '@/lib/store';
-import { jikanToTracked } from '@/lib/jikan';
-import { JikanAnime } from '@/lib/types';
+import { jikanToTracked, jikanMangaToTracked } from '@/lib/jikan';
 
 interface Props {
   anime: JikanAnime;
   tracked: TrackedAnime | undefined;
+  kind?: MediaKind;
   onAdd: () => void;
 }
 
-export default function SearchResultCard({ anime, tracked, onAdd }: Props) {
+export default function SearchResultCard({ anime, tracked, kind = 'anime', onAdd }: Props) {
   const [adding, setAdding] = useState(false);
   const addedRef = useRef(false);
+
+  const isManga = kind === 'manga' || anime.chapters !== undefined;
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -22,7 +24,7 @@ export default function SearchResultCard({ anime, tracked, onAdd }: Props) {
     addedRef.current = true;
     setAdding(true);
 
-    const entry = jikanToTracked(anime);
+    const entry = isManga ? jikanMangaToTracked(anime) : jikanToTracked(anime);
     entry.status = 'planned';
     upsertAnime(entry);
     onAdd();
@@ -42,6 +44,24 @@ export default function SearchResultCard({ anime, tracked, onAdd }: Props) {
       ) : (
         <div className="search-card-cover" style={{ background: 'var(--bg-elevated)' }} />
       )}
+
+      {/* Kind badge */}
+      <span
+        style={{
+          position: 'absolute',
+          top: 6,
+          left: 6,
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          padding: '2px 6px',
+          borderRadius: 4,
+          background: isManga ? 'rgba(236, 72, 153, 0.9)' : 'rgba(99, 102, 241, 0.9)',
+          color: '#fff',
+          zIndex: 2,
+        }}
+      >
+        {isManga ? 'Manga' : 'Anime'}
+      </span>
 
       {/* Already in list badge */}
       {tracked && (
@@ -69,7 +89,7 @@ export default function SearchResultCard({ anime, tracked, onAdd }: Props) {
           onClick={tracked ? undefined : handleAdd}
           disabled={adding}
         >
-          {adding ? '✓ Añadido' : tracked ? `✓ ${tracked.status === 'planned' ? 'Planeado' : 'En lista'}` : '+ Añadir a lista'}
+          {adding ? '✓ Añadido' : tracked ? `✓ En lista` : '+ Añadir a lista'}
         </button>
       </div>
 
@@ -77,7 +97,15 @@ export default function SearchResultCard({ anime, tracked, onAdd }: Props) {
       <div className="search-card-body">
         <div className="search-card-title">{displayTitle}</div>
         <div className="search-card-sub">
-          {[anime.type, anime.year ?? anime.aired?.from?.slice(0, 4)].filter(Boolean).join(' · ')}
+          {[
+            anime.type,
+            isManga
+              ? (anime.chapters ? `${anime.chapters} caps` : null)
+              : (anime.episodes ? `${anime.episodes} eps` : null),
+            anime.year ?? anime.aired?.from?.slice(0, 4) ?? anime.published?.from?.slice(0, 4),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </div>
       </div>
     </div>

@@ -1,8 +1,16 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { TrackedAnime, AnimeStatus, STATUS_LABELS, STATUS_ORDER } from '@/lib/types';
-import { updateEpisode, updateScore, updateStatus, updateNotes, removeAnime } from '@/lib/store';
+import { TrackedAnime, AnimeStatus, STATUS_ORDER, getStatusLabel, STATUS_COLORS } from '@/lib/types';
+import {
+  updateEpisode,
+  updateChapter,
+  updateVolume,
+  updateScore,
+  updateStatus,
+  updateNotes,
+  removeAnime,
+} from '@/lib/store';
 
 interface Props {
   anime: TrackedAnime;
@@ -39,20 +47,62 @@ function StarRating({ value, onChange }: { value: number | null; onChange: (v: n
   );
 }
 
-function EpisodeControl({ anime, onUpdate }: { anime: TrackedAnime; onUpdate: () => void }) {
+function ProgressControl({ anime, onUpdate }: { anime: TrackedAnime; onUpdate: () => void }) {
+  const isManga = anime.kind === 'manga';
+
+  if (isManga) {
+    const totalCaps = anime.totalChapters;
+    const currentCap = anime.currentChapter ?? 0;
+    const pctCap = totalCaps ? Math.min(100, (currentCap / totalCaps) * 100) : 0;
+
+    const handleCapChange = (delta: number) => {
+      const next = Math.max(0, currentCap + delta);
+      if (totalCaps && next > totalCaps) return;
+      updateChapter(anime.malId, next);
+      onUpdate();
+    };
+
+    const handleVolChange = (delta: number) => {
+      const currentVol = anime.currentVolume ?? 0;
+      const next = Math.max(0, currentVol + delta);
+      updateVolume(anime.malId, next);
+      onUpdate();
+    };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+        <div className="ep-controls">
+          <button className="ep-btn" onClick={() => handleCapChange(-1)} disabled={currentCap <= 0} title="Capítulo anterior">−</button>
+          <span className="ep-number">{currentCap}</span>
+          <button className="ep-btn" onClick={() => handleCapChange(1)} disabled={!!totalCaps && currentCap >= totalCaps} title="Siguiente capítulo">+</button>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 4 }}>
+            / {totalCaps ?? '?'} caps
+          </span>
+          {/* Quick volume indicator */}
+          <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            Vol. {anime.currentVolume ?? 0}{anime.totalVolumes ? `/${anime.totalVolumes}` : ''}
+          </span>
+        </div>
+        {(totalCaps || currentCap > 0) && (
+          <div className="ep-track">
+            <div className="ep-fill" style={{ width: `${pctCap}%`, background: 'linear-gradient(90deg, #ec4899, #8b5cf6)' }} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Anime Episode Control
   const total = anime.totalEpisodes;
   const current = anime.currentEpisode;
   const pct = total ? Math.min(100, (current / total) * 100) : 0;
 
-  const handleChange = useCallback(
-    (delta: number) => {
-      const next = Math.max(0, current + delta);
-      if (total && next > total) return;
-      updateEpisode(anime.malId, next);
-      onUpdate();
-    },
-    [anime.malId, current, total, onUpdate]
-  );
+  const handleChange = (delta: number) => {
+    const next = Math.max(0, current + delta);
+    if (total && next > total) return;
+    updateEpisode(anime.malId, next, 'anime');
+    onUpdate();
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
@@ -78,220 +128,255 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
   const [notes, setNotes] = useState(anime.notes);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const kind = anime.kind ?? 'anime';
+  const isManga = kind === 'manga';
+
   const handleStatusChange = (status: AnimeStatus) => {
-    updateStatus(anime.malId, status);
+    updateStatus(anime.malId, status, kind);
     onUpdate();
   };
 
   const handleScoreChange = (score: number | null) => {
-    updateScore(anime.malId, score);
+    updateScore(anime.malId, score, kind);
     onUpdate();
   };
 
   const handleNotesSave = () => {
-    updateNotes(anime.malId, notes);
+    updateNotes(anime.malId, notes, kind);
     onUpdate();
   };
 
   const handleDelete = () => {
-    removeAnime(anime.malId);
+    removeAnime(anime.malId, kind);
     setShowDetail(false);
     onUpdate();
   };
 
-  const displayTitle = anime.titleEnglish || anime.title;
-
   return (
     <>
-      <div className="anime-card" data-status={anime.status}>
+      <div className="anime-card">
         {/* Cover */}
-        {anime.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={anime.coverImage}
-            alt={displayTitle}
-            className="anime-card-cover"
-            onClick={() => setShowDetail(true)}
-            style={{ cursor: 'pointer' }}
-          />
-        ) : (
-          <div className="anime-card-cover" style={{ background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </div>
-        )}
-
-        {/* Info */}
-        <div style={{ overflow: 'hidden' }}>
-          <div
-            className="anime-card-title"
-            onClick={() => setShowDetail(true)}
-            style={{ cursor: 'pointer' }}
-          >
-            {displayTitle}
-          </div>
-          {anime.title !== displayTitle && (
-            <div className="text-xs text-muted" style={{ marginBottom: 4 }}>{anime.title}</div>
+        <div className="card-cover-wrapper" onClick={() => setShowDetail(true)}>
+          {anime.coverImage ? (
+            <img src={anime.coverImage} alt={anime.title} className="card-cover-img" loading="lazy" />
+          ) : (
+            <div className="card-cover-placeholder">
+              <span>{isManga ? '📖' : '🎌'}</span>
+            </div>
           )}
-          <div className="anime-card-meta">
-            <span className="status-badge" data-status={anime.status}>
-              {STATUS_LABELS[anime.status]}
-            </span>
-            {anime.type && <span className="chip">{anime.type}</span>}
-            {anime.year && <span className="chip">{anime.year}</span>}
-            {anime.malScore && (
-              <span className="chip" title="Puntuación de MyAnimeList">
-                ⭐ {anime.malScore.toFixed(1)}
-              </span>
-            )}
-          </div>
+
+          {/* Type / Kind badge */}
+          <span
+            className="card-type-badge"
+            style={{
+              background: isManga ? 'rgba(236, 72, 153, 0.85)' : 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            {isManga ? '📖 Manga' : (anime.type || '🎬 Anime')}
+          </span>
+
+          {/* Status pill on cover */}
+          <span
+            className="status-badge"
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              fontSize: '0.68rem',
+              padding: '2px 7px',
+              backgroundColor: `rgba(0,0,0,0.65)`,
+              border: `1px solid ${STATUS_COLORS[anime.status]}`,
+              color: STATUS_COLORS[anime.status],
+            }}
+          >
+            {getStatusLabel(anime.status, kind)}
+          </span>
+
+          {anime.malScore && (
+            <div className="card-score-badge">
+              ★ {anime.malScore.toFixed(1)}
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="anime-card-actions">
-          {/* Status select */}
+        {/* Info */}
+        <div className="card-info">
+          <h3
+            className="card-title"
+            title={anime.title}
+            onClick={() => setShowDetail(true)}
+            style={{ cursor: 'pointer' }}
+          >
+            {anime.title}
+          </h3>
+
+          {/* Quick status selector */}
           <select
-            className="form-select"
+            className="status-select"
             value={anime.status}
             onChange={(e) => handleStatusChange(e.target.value as AnimeStatus)}
-            title="Cambiar estado"
+            style={{ color: STATUS_COLORS[anime.status], borderColor: `${STATUS_COLORS[anime.status]}40` }}
           >
             {STATUS_ORDER.map((s) => (
-              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+              <option key={s} value={s}>
+                {getStatusLabel(s, kind)}
+              </option>
             ))}
           </select>
 
-          {/* Episode control */}
-          <EpisodeControl anime={anime} onUpdate={onUpdate} />
+          {/* Episode / Chapter control */}
+          <ProgressControl anime={anime} onUpdate={onUpdate} />
 
-          {/* Score */}
-          <StarRating value={anime.score} onChange={handleScoreChange} />
+          {/* Star rating */}
+          <div style={{ marginTop: 'auto', paddingTop: 4 }}>
+            <StarRating value={anime.score} onChange={handleScoreChange} />
+          </div>
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail / Edit Modal */}
       {showDetail && (
-        <div className="modal-backdrop" onClick={() => setShowDetail(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title" style={{ fontSize: '1rem' }}>{displayTitle}</div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowDetail(false)}>✕</button>
+        <div className="modal-overlay" onClick={() => setShowDetail(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
+              {anime.coverImage && (
+                <img
+                  src={anime.coverImage}
+                  alt={anime.title}
+                  style={{ width: 100, height: 140, objectFit: 'cover', borderRadius: 'var(--radius-sm)', flexShrink: 0 }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: isManga ? '#ec4899' : '#6366f1',
+                      color: '#fff',
+                    }}
+                  >
+                    {isManga ? 'Manga' : 'Anime'}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    MAL ID #{anime.malId}
+                  </span>
+                </div>
+                <h2 style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.3, marginBottom: 4 }}>
+                  {anime.title}
+                </h2>
+                {anime.titleEnglish && anime.titleEnglish !== anime.title && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                    {anime.titleEnglish}
+                  </p>
+                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {anime.genres.map((g) => (
+                    <span key={g} className="genre-tag">
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="modal-body">
-              <div className="detail-grid">
-                {/* Cover */}
-                <div>
-                  {anime.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={anime.coverImage} alt={displayTitle} className="detail-cover" />
-                  ) : (
-                    <div className="detail-cover" style={{ background: 'var(--bg-elevated)' }} />
-                  )}
-                </div>
-
-                {/* Meta */}
-                <div>
-                  <div className="detail-meta-row">
-                    <span className="detail-meta-label">Estado</span>
-                    <select
-                      className="form-select"
-                      value={anime.status}
-                      onChange={(e) => handleStatusChange(e.target.value as AnimeStatus)}
+            {/* Status & Progress Form */}
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  Estado
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {STATUS_ORDER.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => handleStatusChange(s)}
+                      className="tab-btn"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        borderColor: anime.status === s ? STATUS_COLORS[s] : 'transparent',
+                        color: anime.status === s ? STATUS_COLORS[s] : 'var(--text-secondary)',
+                        background: anime.status === s ? `${STATUS_COLORS[s]}15` : 'var(--bg-glass)',
+                      }}
                     >
-                      {STATUS_ORDER.map((s) => (
-                        <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="detail-meta-row">
-                    <span className="detail-meta-label">Tipo</span>
-                    <span className="detail-meta-value">{anime.type || '—'}</span>
-                  </div>
-                  <div className="detail-meta-row">
-                    <span className="detail-meta-label">Episodios</span>
-                    <span className="detail-meta-value">{anime.currentEpisode} / {anime.totalEpisodes ?? '?'}</span>
-                  </div>
-                  <div className="detail-meta-row">
-                    <span className="detail-meta-label">Año</span>
-                    <span className="detail-meta-value">{anime.year ?? '—'}</span>
-                  </div>
-                  <div className="detail-meta-row">
-                    <span className="detail-meta-label">Duración</span>
-                    <span className="detail-meta-value">{anime.duration ? `${anime.duration} min` : '—'}</span>
-                  </div>
-                  <div className="detail-meta-row">
-                    <span className="detail-meta-label">Score MAL</span>
-                    <span className="detail-meta-value">{anime.malScore ? `${anime.malScore.toFixed(1)} / 10` : '—'}</span>
-                  </div>
-                  <div className="detail-meta-row" style={{ borderBottom: 'none' }}>
-                    <span className="detail-meta-label">Mi puntuación</span>
-                    <div>
-                      <StarRating value={anime.score} onChange={handleScoreChange} />
-                    </div>
-                  </div>
+                      {getStatusLabel(s, kind)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Genres */}
-              {anime.genres.length > 0 && (
-                <div className="mt-4">
-                  <div className="text-xs text-muted" style={{ marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Géneros</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {anime.genres.map((g) => <span key={g} className="chip">{g}</span>)}
-                  </div>
-                </div>
-              )}
+              {/* Progress */}
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  {isManga ? 'Progreso de Capítulos' : 'Progreso de Episodios'}
+                </label>
+                <ProgressControl anime={anime} onUpdate={onUpdate} />
+              </div>
 
-              {/* Synopsis */}
+              {/* Personal Score */}
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  Puntuación personal
+                </label>
+                <StarRating value={anime.score} onChange={handleScoreChange} />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                  Notas / Reseña personal
+                </label>
+                <textarea
+                  className="input-search"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onBlur={handleNotesSave}
+                  rows={3}
+                  placeholder="Escribe tus impresiones o comentarios..."
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Synopsis if available */}
               {anime.synopsis && (
-                <div className="mt-4">
-                  <div className="text-xs text-muted" style={{ marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sinopsis</div>
-                  <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.7, maxHeight: 120, overflow: 'auto' }}>
-                    {anime.synopsis.replace(/<[^>]+>/g, '')}
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+                    Sinopsis
+                  </label>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, maxHeight: 100, overflowY: 'auto' }}>
+                    {anime.synopsis}
                   </p>
                 </div>
               )}
 
-              {/* Notes */}
-              <div className="mt-4">
-                <div className="text-xs text-muted" style={{ marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mis notas</div>
-                <textarea
-                  className="form-input form-textarea"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Agrega notas personales..."
-                  rows={3}
-                />
-                <button className="btn btn-ghost btn-sm mt-2" onClick={handleNotesSave}>
-                  Guardar notas
+              {/* Danger Zone */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {!confirmDelete ? (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ color: 'var(--status-dropped)', fontSize: '0.8rem' }}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Eliminar de mi lista
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-danger" style={{ fontSize: '0.8rem', padding: '6px 12px' }} onClick={handleDelete}>
+                      Confirmar eliminar
+                    </button>
+                    <button className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setConfirmDelete(false)}>
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+                <button className="btn btn-secondary" onClick={() => setShowDetail(false)}>
+                  Cerrar
                 </button>
               </div>
-
-              {/* Episode control */}
-              <div className="mt-4">
-                <div className="text-xs text-muted" style={{ marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progreso</div>
-                <EpisodeControl anime={anime} onUpdate={onUpdate} />
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              {confirmDelete ? (
-                <>
-                  <span style={{ fontSize: '0.83rem', color: 'var(--status-dropped)', flex: 1 }}>¿Eliminar de tu lista?</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Cancelar</button>
-                  <button className="btn btn-danger btn-sm" onClick={handleDelete}>Sí, eliminar</button>
-                </>
-              ) : (
-                <>
-                  <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>
-                    Eliminar
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setShowDetail(false)}>Cerrar</button>
-                </>
-              )}
             </div>
           </div>
         </div>

@@ -10,7 +10,9 @@ export default function SettingsPage() {
   const [cleared, setCleared] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const animeCount = typeof window !== 'undefined' ? getAnimes().length : 0;
+  const items = typeof window !== 'undefined' ? getAnimes() : [];
+  const animeCount = items.filter((a) => (a.kind ?? 'anime') === 'anime').length;
+  const mangaCount = items.filter((a) => a.kind === 'manga').length;
 
   const handleExport = () => {
     const json = exportStoreJSON();
@@ -18,7 +20,7 @@ export default function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `animelist-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `animetrack-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -45,15 +47,16 @@ export default function SettingsPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            Sobre AnimeTracker
+            Sobre Anime & Manga Tracker
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              ['Versión', '1.0.0'],
-              ['Almacenamiento', 'localStorage del navegador'],
+              ['Versión', '1.1.0 (Anime + Manga Unified)'],
+              ['Almacenamiento', 'localStorage local privado'],
               ['Animes en lista', String(animeCount)],
-              ['API de búsqueda', 'Jikan v4 (MyAnimeList)'],
-              ['Importación', 'AniList GraphQL API'],
+              ['Mangas en lista', String(mangaCount)],
+              ['Búsqueda y Metadatos', 'Jikan API v4 (MyAnimeList)'],
+              ['Importación soportada', 'MyAnimeList XML (Anime y Manga) + AniList'],
             ].map(([label, value]) => (
               <div key={label} className="detail-meta-row">
                 <span className="detail-meta-label">{label}</span>
@@ -73,8 +76,8 @@ export default function SettingsPage() {
             Gestión de datos
           </div>
           <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-            Tus datos se almacenan únicamente en este navegador (localStorage).
-            Exporta regularmente para no perder tu progreso si limpias la caché.
+            Tus datos se guardan de forma 100% privada en tu navegador.
+            Exporta un backup de vez en cuando para mantener una copia de seguridad o transferirlo a otro dispositivo.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={handleExport}>
@@ -82,14 +85,14 @@ export default function SettingsPage() {
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              Exportar backup
+              Exportar backup completo
             </button>
             <button className="btn btn-ghost" onClick={() => setShowImport(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/>
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              Importar / AniList
+              Importar / Sincronizar
             </button>
           </div>
         </div>
@@ -98,55 +101,41 @@ export default function SettingsPage() {
         <div className="card" style={{ padding: 20, borderColor: 'rgba(248, 113, 113, 0.2)' }}>
           <div className="section-title" style={{ color: 'var(--status-dropped)' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-              <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             Zona de peligro
           </div>
-          <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-            Esta acción eliminará permanentemente toda tu lista de anime del localStorage.
-            Esta operación no se puede deshacer.
+          <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
+            Borrar toda la lista de animes y mangas almacenada en este navegador. Esta acción es irreversible.
           </p>
-
-          {cleared ? (
-            <div className="toast success" style={{ position: 'static', animation: 'none', maxWidth: '100%' }}>
-              ✓ Lista eliminada. Recargando...
-            </div>
-          ) : confirmClear ? (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: '0.83rem', color: 'var(--status-dropped)' }}>¿Estás seguro? Perderás {animeCount} animes.</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClear(false)}>Cancelar</button>
-              <button className="btn btn-danger btn-sm" onClick={handleClearAll}>Sí, eliminar todo</button>
-            </div>
-          ) : (
-            <button className="btn btn-danger" onClick={() => setConfirmClear(true)}>
-              Eliminar toda mi lista
+          {!confirmClear ? (
+            <button
+              className="btn btn-ghost"
+              style={{ color: 'var(--status-dropped)', borderColor: 'rgba(248, 113, 113, 0.3)' }}
+              onClick={() => setConfirmClear(true)}
+            >
+              Borrar todos mis datos
             </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button className="btn btn-danger" onClick={handleClearAll}>
+                ⚠️ Sí, borrar todo definitivamente
+              </button>
+              <button className="btn btn-ghost" onClick={() => setConfirmClear(false)}>
+                Cancelar
+              </button>
+            </div>
           )}
-        </div>
-
-        {/* API info */}
-        <div className="card" style={{ padding: 20, marginTop: 20 }}>
-          <div className="section-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-            APIs utilizadas
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.83rem' }}>
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Jikan API v4</div>
-              <div style={{ color: 'var(--text-secondary)' }}>API no-oficial de MyAnimeList. Gratuita, sin API key. <a href="https://jikan.moe" target="_blank" rel="noopener" style={{ color: 'var(--text-accent)' }}>jikan.moe</a></div>
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>AniList GraphQL API</div>
-              <div style={{ color: 'var(--text-secondary)' }}>API oficial de AniList. Gratuita, sin API key para datos públicos. <a href="https://anilist.co" target="_blank" rel="noopener" style={{ color: 'var(--text-accent)' }}>anilist.co</a></div>
-            </div>
-          </div>
+          {cleared && (
+            <p style={{ marginTop: 10, fontSize: '0.83rem', color: 'var(--status-watching)' }}>
+              ✓ Datos borrados. Reiniciando...
+            </p>
+          )}
         </div>
       </main>
 
+      {/* Import Modal */}
       {showImport && (
         <ImportModal
           onClose={() => setShowImport(false)}

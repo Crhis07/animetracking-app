@@ -1,4 +1,4 @@
-import { AppStore, TrackedAnime, AnimeStatus } from './types';
+import { AppStore, TrackedAnime, AnimeStatus, MediaKind } from './types';
 
 const STORE_KEY = 'animelist_v1';
 const STORE_VERSION = 1;
@@ -33,17 +33,23 @@ function saveStore(store: AppStore): void {
   }
 }
 
-export function getAnimes(): TrackedAnime[] {
-  return loadStore().animes;
+export function getAnimes(kind?: MediaKind | 'all'): TrackedAnime[] {
+  const all = loadStore().animes;
+  if (!kind || kind === 'all') return all;
+  return all.filter((a) => (a.kind ?? 'anime') === kind);
 }
 
-export function getAnime(malId: number): TrackedAnime | undefined {
-  return loadStore().animes.find((a) => a.malId === malId);
+export function getAnime(malId: number, kind: MediaKind = 'anime'): TrackedAnime | undefined {
+  return loadStore().animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
 }
 
 export function upsertAnime(anime: TrackedAnime): void {
   const store = loadStore();
-  const idx = store.animes.findIndex((a) => a.malId === anime.malId);
+  const animeKind = anime.kind ?? 'anime';
+  const idx = store.animes.findIndex(
+    (a) => a.malId === anime.malId && (a.kind ?? 'anime') === animeKind
+  );
+  anime.kind = animeKind;
   anime.updatedAt = new Date().toISOString();
   if (idx === -1) {
     anime.addedAt = new Date().toISOString();
@@ -54,56 +60,79 @@ export function upsertAnime(anime: TrackedAnime): void {
   saveStore(store);
 }
 
-export function removeAnime(malId: number): void {
+export function removeAnime(malId: number, kind: MediaKind = 'anime'): void {
   const store = loadStore();
-  store.animes = store.animes.filter((a) => a.malId !== malId);
+  store.animes = store.animes.filter(
+    (a) => !(a.malId === malId && (a.kind ?? 'anime') === kind)
+  );
   saveStore(store);
 }
 
-export function updateEpisode(malId: number, episode: number): void {
+export function updateEpisode(malId: number, episode: number, kind: MediaKind = 'anime'): void {
   const store = loadStore();
-  const anime = store.animes.find((a) => a.malId === malId);
-  if (!anime) return;
-  anime.currentEpisode = Math.max(0, episode);
-  anime.updatedAt = new Date().toISOString();
-  // Auto-complete if finished
-  if (anime.totalEpisodes && anime.currentEpisode >= anime.totalEpisodes) {
-    anime.status = 'completed';
-    anime.completedAt = new Date().toISOString();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.currentEpisode = Math.max(0, episode);
+  item.updatedAt = new Date().toISOString();
+  if (item.totalEpisodes && item.currentEpisode >= item.totalEpisodes) {
+    item.status = 'completed';
+    item.completedAt = new Date().toISOString();
   }
   saveStore(store);
 }
 
-export function updateScore(malId: number, score: number | null): void {
+export function updateChapter(malId: number, chapter: number, kind: MediaKind = 'manga'): void {
   const store = loadStore();
-  const anime = store.animes.find((a) => a.malId === malId);
-  if (!anime) return;
-  anime.score = score;
-  anime.updatedAt = new Date().toISOString();
-  saveStore(store);
-}
-
-export function updateStatus(malId: number, status: AnimeStatus): void {
-  const store = loadStore();
-  const anime = store.animes.find((a) => a.malId === malId);
-  if (!anime) return;
-  anime.status = status;
-  anime.updatedAt = new Date().toISOString();
-  if (status === 'completed' && !anime.completedAt) {
-    anime.completedAt = new Date().toISOString();
-  }
-  if (status === 'watching' && !anime.startedAt) {
-    anime.startedAt = new Date().toISOString();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.currentChapter = Math.max(0, chapter);
+  item.updatedAt = new Date().toISOString();
+  if (item.totalChapters && item.currentChapter >= item.totalChapters) {
+    item.status = 'completed';
+    item.completedAt = new Date().toISOString();
   }
   saveStore(store);
 }
 
-export function updateNotes(malId: number, notes: string): void {
+export function updateVolume(malId: number, volume: number, kind: MediaKind = 'manga'): void {
   const store = loadStore();
-  const anime = store.animes.find((a) => a.malId === malId);
-  if (!anime) return;
-  anime.notes = notes;
-  anime.updatedAt = new Date().toISOString();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.currentVolume = Math.max(0, volume);
+  item.updatedAt = new Date().toISOString();
+  saveStore(store);
+}
+
+export function updateScore(malId: number, score: number | null, kind: MediaKind = 'anime'): void {
+  const store = loadStore();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.score = score;
+  item.updatedAt = new Date().toISOString();
+  saveStore(store);
+}
+
+export function updateStatus(malId: number, status: AnimeStatus, kind: MediaKind = 'anime'): void {
+  const store = loadStore();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.status = status;
+  item.updatedAt = new Date().toISOString();
+  if (status === 'completed' && !item.completedAt) {
+    item.completedAt = new Date().toISOString();
+  }
+  if (status === 'watching' && !item.startedAt) {
+    item.startedAt = new Date().toISOString();
+  }
+  saveStore(store);
+}
+
+export function updateNotes(malId: number, notes: string, kind: MediaKind = 'anime'): void {
+  const store = loadStore();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.notes = notes;
+  item.updatedAt = new Date().toISOString();
   saveStore(store);
 }
 
@@ -120,13 +149,15 @@ export function importStoreJSON(json: string): { success: boolean; count: number
     if (!Array.isArray(data.animes)) {
       return { success: false, count: 0, error: 'Formato de archivo inválido.' };
     }
-    // Merge: keep existing + add new from import
     const store = loadStore();
     let added = 0;
-    for (const anime of data.animes) {
-      const exists = store.animes.find((a) => a.malId === anime.malId);
+    for (const item of data.animes) {
+      const itemKind = item.kind ?? 'anime';
+      const exists = store.animes.find(
+        (a) => a.malId === item.malId && (a.kind ?? 'anime') === itemKind
+      );
       if (!exists) {
-        store.animes.push(anime);
+        store.animes.push({ ...item, kind: itemKind });
         added++;
       }
     }
@@ -141,9 +172,15 @@ export function importStoreJSON(json: string): { success: boolean; count: number
 
 export interface AnimeStats {
   totalAnimes: number;
+  totalAnime: number;
+  totalManga: number;
   byStatus: Record<AnimeStatus, number>;
+  byStatusAnime: Record<AnimeStatus, number>;
+  byStatusManga: Record<AnimeStatus, number>;
   totalEpisodesWatched: number;
   totalHoursWatched: number;
+  totalChaptersRead: number;
+  totalVolumesRead: number;
   averageScore: number | null;
   topGenres: Array<{ genre: string; count: number }>;
   completionRate: number;
@@ -152,7 +189,7 @@ export interface AnimeStats {
 }
 
 export function computeStats(): AnimeStats {
-  const animes = getAnimes();
+  const animes = loadStore().animes;
   const byStatus: Record<AnimeStatus, number> = {
     watching: 0,
     completed: 0,
@@ -160,24 +197,40 @@ export function computeStats(): AnimeStats {
     on_hold: 0,
     dropped: 0,
   };
+  const byStatusAnime: Record<AnimeStatus, number> = { ...byStatus };
+  const byStatusManga: Record<AnimeStatus, number> = { ...byStatus };
 
   let totalEpisodesWatched = 0;
   let totalMinutes = 0;
+  let totalChaptersRead = 0;
+  let totalVolumesRead = 0;
+  let totalAnimeCount = 0;
+  let totalMangaCount = 0;
   const scores: number[] = [];
   const genreMap: Record<string, number> = {};
   const scoreMap: Record<number, number> = {};
 
-  for (const anime of animes) {
-    byStatus[anime.status]++;
-    totalEpisodesWatched += anime.currentEpisode;
-    totalMinutes += anime.currentEpisode * (anime.duration ?? 24);
-
-    if (anime.score !== null) {
-      scores.push(anime.score);
-      scoreMap[anime.score] = (scoreMap[anime.score] ?? 0) + 1;
+  for (const item of animes) {
+    const isManga = item.kind === 'manga';
+    byStatus[item.status]++;
+    if (isManga) {
+      totalMangaCount++;
+      byStatusManga[item.status]++;
+      totalChaptersRead += item.currentChapter ?? 0;
+      totalVolumesRead += item.currentVolume ?? 0;
+    } else {
+      totalAnimeCount++;
+      byStatusAnime[item.status]++;
+      totalEpisodesWatched += item.currentEpisode ?? 0;
+      totalMinutes += (item.currentEpisode ?? 0) * (item.duration ?? 24);
     }
 
-    for (const genre of anime.genres) {
+    if (item.score !== null) {
+      scores.push(item.score);
+      scoreMap[item.score] = (scoreMap[item.score] ?? 0) + 1;
+    }
+
+    for (const genre of item.genres) {
       genreMap[genre] = (genreMap[genre] ?? 0) + 1;
     }
   }
@@ -197,14 +250,20 @@ export function computeStats(): AnimeStats {
 
   return {
     totalAnimes: animes.length,
+    totalAnime: totalAnimeCount,
+    totalManga: totalMangaCount,
     byStatus,
+    byStatusAnime,
+    byStatusManga,
     totalEpisodesWatched,
     totalHoursWatched: Math.round(totalMinutes / 60),
+    totalChaptersRead,
+    totalVolumesRead,
     averageScore: scores.length > 0 ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 10) / 10 : null,
     topGenres,
     completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
     meanEpisodesPerAnime:
-      animes.length > 0 ? Math.round(totalEpisodesWatched / animes.length) : 0,
+      totalAnimeCount > 0 ? Math.round(totalEpisodesWatched / totalAnimeCount) : 0,
     scoreDist,
   };
 }
