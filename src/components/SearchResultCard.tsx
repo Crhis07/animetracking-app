@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { TrackedAnime, MediaKind, JikanAnime } from '@/lib/types';
+import { useState } from 'react';
+import { TrackedAnime, MediaKind, JikanAnime, AnimeStatus } from '@/lib/types';
 import { upsertAnime } from '@/lib/store';
 import { jikanToTracked, jikanMangaToTracked } from '@/lib/jikan';
 
@@ -14,22 +14,23 @@ interface Props {
 
 export default function SearchResultCard({ anime, tracked, kind = 'anime', onAdd }: Props) {
   const [adding, setAdding] = useState(false);
-  const addedRef = useRef(false);
 
   const isManga = kind === 'manga' || anime.chapters !== undefined;
 
-  const handleAdd = async (e: React.MouseEvent) => {
+  const handleAddWithStatus = (e: React.MouseEvent, status: AnimeStatus) => {
     e.stopPropagation();
-    if (adding || addedRef.current) return;
-    addedRef.current = true;
     setAdding(true);
 
-    const entry = isManga ? jikanMangaToTracked(anime) : jikanToTracked(anime);
-    entry.status = 'planned';
-    upsertAnime(entry);
+    if (tracked) {
+      upsertAnime({ ...tracked, status });
+    } else {
+      const entry = isManga ? jikanMangaToTracked(anime) : jikanToTracked(anime);
+      entry.status = status;
+      upsertAnime(entry);
+    }
     onAdd();
 
-    setTimeout(() => setAdding(false), 600);
+    setTimeout(() => setAdding(false), 500);
   };
 
   const displayTitle = anime.title_english || anime.title;
@@ -75,22 +76,34 @@ export default function SearchResultCard({ anime, tracked, kind = 'anime', onAdd
       {/* Overlay on hover */}
       <div className="search-card-overlay">
         {anime.score && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
             <span style={{ color: '#fbbf24', fontSize: '0.75rem' }}>★</span>
             <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 700 }}>{anime.score}</span>
           </div>
         )}
         {anime.genres?.slice(0, 2).map((g) => (
-          <span key={g.mal_id} className="chip" style={{ fontSize: '0.65rem', marginBottom: 4 }}>{g.name}</span>
+          <span key={g.mal_id} className="chip" style={{ fontSize: '0.65rem', marginBottom: 3 }}>{g.name}</span>
         ))}
-        <button
-          className={`btn ${tracked ? 'btn-ghost' : 'btn-primary'} btn-sm`}
-          style={{ width: '100%', marginTop: 8 }}
-          onClick={tracked ? undefined : handleAdd}
-          disabled={adding}
-        >
-          {adding ? '✓ Añadido' : tracked ? `✓ En lista` : '+ Añadir a lista'}
-        </button>
+
+        {/* Quick Add Buttons: Viendo / Por Ver */}
+        <div style={{ display: 'flex', gap: 4, width: '100%', marginTop: 6 }}>
+          <button
+            className={`btn ${tracked?.status === 'watching' ? 'btn-ghost' : 'btn-primary'} btn-sm`}
+            style={{ flex: 1, padding: '5px 4px', fontSize: '0.72rem' }}
+            onClick={(e) => handleAddWithStatus(e, 'watching')}
+            disabled={adding}
+          >
+            {tracked?.status === 'watching' ? '✓ ' + (isManga ? 'Leyendo' : 'Viendo') : '+ ' + (isManga ? 'Leyendo' : 'Viendo')}
+          </button>
+          <button
+            className={`btn ${tracked?.status === 'planned' ? 'btn-ghost' : 'btn-secondary'} btn-sm`}
+            style={{ flex: 1, padding: '5px 4px', fontSize: '0.72rem' }}
+            onClick={(e) => handleAddWithStatus(e, 'planned')}
+            disabled={adding}
+          >
+            {tracked?.status === 'planned' ? '✓ ' + (isManga ? 'Por Leer' : 'Por Ver') : '+ ' + (isManga ? 'Por Leer' : 'Por Ver')}
+          </button>
+        </div>
       </div>
 
       {/* Body */}

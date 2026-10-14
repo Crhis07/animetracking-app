@@ -29,7 +29,15 @@ export default function SearchPage() {
     setTrackedMap(map);
   }, []);
 
-  useEffect(() => { refreshTracked(); }, [refreshTracked]);
+  useEffect(() => {
+    refreshTracked();
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('type');
+      if (p === 'manga' || p === 'anime') {
+        setMediaKind(p);
+      }
+    }
+  }, [refreshTracked]);
 
   // Reset or load featured when mediaKind or tab changes
   useEffect(() => {
