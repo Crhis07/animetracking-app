@@ -51,20 +51,39 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      {/* Brand */}
-      <Link href="/list" className="navbar-brand">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="8" fill="url(#grad)" />
-          <path d="M8 22L14 10L20 18L23 14L26 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <defs>
-            <linearGradient id="grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#6366f1" /><stop offset="0.5" stopColor="#8b5cf6" /><stop offset="1" stopColor="#ec4899" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-          <span style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Anime & Manga Tracker</span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>Personal Tracker</span>
+      {/* Brand with Waifu Logo */}
+      <Link href="/list" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="AniTrack Waifu Logo"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '2px solid rgba(236, 72, 153, 0.7)',
+              boxShadow: '0 0 14px rgba(236, 72, 153, 0.4), 0 0 20px rgba(99, 102, 241, 0.3)',
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+          <span
+            style={{
+              fontWeight: 800,
+              fontSize: '1.05rem',
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(135deg, #ffffff 0%, #e0e7ff 60%, #f472b6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            AniTrack
+          </span>
+          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>
+            Anime & Manga Tracker
+          </span>
         </div>
       </Link>
 

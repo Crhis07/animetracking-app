@@ -15,14 +15,18 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'AnimeTracker — Tu lista personal de anime',
+  title: 'AniTrack — Tu lista personal de Anime & Manga',
   description:
-    'Lleva el control de todos los animes que ves, has visto o planeas ver. ' +
+    'Lleva el control de todos los animes y mangas que ves, has leído o planeas ver. ' +
     'Tus datos, sin suscripciones, sin depender de nadie.',
-  keywords: ['anime', 'tracker', 'myanimelist', 'anilist', 'seguimiento', 'lista de anime'],
+  keywords: ['anime', 'manga', 'tracker', 'myanimelist', 'anilist', 'seguimiento', 'lista de anime'],
+  icons: {
+    icon: '/logo.jpg',
+    apple: '/logo.jpg',
+  },
   openGraph: {
-    title: 'AnimeTracker',
-    description: 'Tu lista personal de anime, sin suscripciones.',
+    title: 'AniTrack — Anime & Manga Tracker',
+    description: 'Tu lista personal de anime y manga, sin suscripciones.',
     type: 'website',
   },
 };
