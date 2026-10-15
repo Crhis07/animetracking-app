@@ -3,8 +3,8 @@ import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const clientId = searchParams.get('clientId')?.trim() || process.env.MAL_CLIENT_ID || '';
-  const clientSecret = searchParams.get('clientSecret')?.trim() || process.env.MAL_CLIENT_SECRET || '';
+  const clientId = searchParams.get('clientId')?.trim() || process.env.MAL_CLIENT_ID || 'b0e945d953bd0d999d9e5c03a0b87404';
+  const clientSecret = searchParams.get('clientSecret')?.trim() || process.env.MAL_CLIENT_SECRET || '2b428f14563cf0fb875ac240a10c239ca64b9ab67a18d3f642336c0fea3ad599';
 
   if (!clientId) {
     return NextResponse.json(

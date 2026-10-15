@@ -20,8 +20,8 @@ export default function SettingsPage() {
 
   // MAL OAuth 2.0 Live Sync state
   const [oauthStatus, setOauthStatus] = useState<MALOAuthStatus | null>(null);
-  const [clientIdInput, setClientIdInput] = useState('');
-  const [clientSecretInput, setClientSecretInput] = useState('');
+  const [clientIdInput, setClientIdInput] = useState('b0e945d953bd0d999d9e5c03a0b87404');
+  const [clientSecretInput, setClientSecretInput] = useState('2b428f14563cf0fb875ac240a10c239ca64b9ab67a18d3f642336c0fea3ad599');
   const [showOAuthGuide, setShowOAuthGuide] = useState(false);
   const [copiedRedirect, setCopiedRedirect] = useState(false);
   const [oauthMessage, setOauthMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -31,8 +31,8 @@ export default function SettingsPage() {
     checkMALOAuthStatus().then(setOauthStatus);
 
     if (typeof window !== 'undefined') {
-      const savedCid = localStorage.getItem('mal_client_id') || '';
-      const savedSecret = localStorage.getItem('mal_client_secret') || '';
+      const savedCid = localStorage.getItem('mal_client_id') || 'b0e945d953bd0d999d9e5c03a0b87404';
+      const savedSecret = localStorage.getItem('mal_client_secret') || '2b428f14563cf0fb875ac240a10c239ca64b9ab67a18d3f642336c0fea3ad599';
       if (savedCid) setClientIdInput(savedCid);
       if (savedSecret) setClientSecretInput(savedSecret);
 
@@ -95,17 +95,11 @@ export default function SettingsPage() {
 
   const handleStartOAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    const cid = clientIdInput.trim();
-    if (!cid) {
-      setOauthMessage({ type: 'error', text: 'Por favor ingresa tu Client ID de MyAnimeList.' });
-      return;
-    }
+    const cid = clientIdInput.trim() || 'b0e945d953bd0d999d9e5c03a0b87404';
+    const secret = clientSecretInput.trim() || '2b428f14563cf0fb875ac240a10c239ca64b9ab67a18d3f642336c0fea3ad599';
     localStorage.setItem('mal_client_id', cid);
-    if (clientSecretInput.trim()) {
-      localStorage.setItem('mal_client_secret', clientSecretInput.trim());
-    }
-    const params = new URLSearchParams({ clientId: cid });
-    if (clientSecretInput.trim()) params.set('clientSecret', clientSecretInput.trim());
+    localStorage.setItem('mal_client_secret', secret);
+    const params = new URLSearchParams({ clientId: cid, clientSecret: secret });
     window.location.href = `/api/mal/oauth/login?${params.toString()}`;
   };
 

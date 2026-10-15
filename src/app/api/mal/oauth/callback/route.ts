@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
 
   const codeVerifier = req.cookies.get('mal_pkce_verifier')?.value;
   const savedState = req.cookies.get('mal_oauth_state')?.value;
-  const clientId = req.cookies.get('mal_client_id')?.value;
-  const clientSecret = req.cookies.get('mal_client_secret')?.value || '';
+  const clientId = req.cookies.get('mal_client_id')?.value || process.env.MAL_CLIENT_ID || 'b0e945d953bd0d999d9e5c03a0b87404';
+  const clientSecret = req.cookies.get('mal_client_secret')?.value || process.env.MAL_CLIENT_SECRET || '2b428f14563cf0fb875ac240a10c239ca64b9ab67a18d3f642336c0fea3ad599';
 
   if (!codeVerifier || !clientId) {
     return NextResponse.redirect(
@@ -36,18 +36,17 @@ export async function GET(req: NextRequest) {
     const bodyParams = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: clientId,
+      client_secret: clientSecret,
       code,
       code_verifier: codeVerifier,
       redirect_uri: redirectUri,
     });
 
-    if (clientSecret) {
-      bodyParams.set('client_secret', clientSecret);
-    }
-
     const tokenRes = await fetch('https://myanimelist.net/v1/oauth2/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       body: bodyParams.toString(),
     });
 
@@ -55,7 +54,7 @@ export async function GET(req: NextRequest) {
       const errText = await tokenRes.text();
       console.error('MAL Token Exchange error:', errText);
       return NextResponse.redirect(
-        `${origin}/settings?oauth_error=${encodeURIComponent('No se pudo canjear el token con MyAnimeList.')}`
+        `${origin}/settings?oauth_error=${encodeURIComponent(`Error al canjear token con MyAnimeList: ${errText}`)}`
       );
     }
 
