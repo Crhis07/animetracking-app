@@ -35,7 +35,7 @@ function parseFavoritesFromHTML(html: string) {
     const match = html.match(sectionRegex);
     if (!match) return [];
     const ulContent = match[0];
-    const liRegex = /<li[^>]*class="btn-fav"[^>]*title="([^"]+)"[\s\S]*?href="([^"]+)"[\s\S]*?<img([^>]+)>/gi;
+    const liRegex = /<li[^>]*class="[^"]*btn-fav[^"]*"[^>]*title="([^"]+)"[\s\S]*?href="([^"]+)"[\s\S]*?<img([^>]+)>/gi;
     const items = [];
     let m;
     while ((m = liRegex.exec(ulContent)) !== null) {
@@ -102,14 +102,7 @@ function parseFavoritesFromHTML(html: string) {
   return { avatar, animes, mangas, characters, people };
 }
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const username = searchParams.get('username')?.trim();
-
-  if (!username) {
-    return NextResponse.json({ error: 'Falta el parámetro username' }, { status: 400 });
-  }
-
+export async function fetchMALProfile(username: string) {
   try {
     const res = await fetch(`https://myanimelist.net/profile/${encodeURIComponent(username)}`, {
       headers: {
@@ -120,25 +113,10 @@ export async function GET(req: NextRequest) {
       next: { revalidate: 300 }, // Cache 5 min
     });
 
-    if (res.status === 404) {
-      return NextResponse.json(
-        { error: `Usuario "${username}" no encontrado en MyAnimeList.` },
-        { status: 404 }
-      );
-    }
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `Error de MyAnimeList (código ${res.status}). Intenta nuevamente.` },
-        { status: res.status }
-      );
-    }
-
+    if (!res.ok) return null;
     const html = await res.text();
     const parsed = parseFavoritesFromHTML(html);
-
-    return NextResponse.json({
-      ok: true,
+    return {
       username,
       avatar: parsed.avatar,
       favorites: {
@@ -147,12 +125,33 @@ export async function GET(req: NextRequest) {
         characters: parsed.characters,
         people: parsed.people,
       },
-    });
+    };
   } catch (err) {
     console.error('Error fetching MAL profile:', err);
+    return null;
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const username = searchParams.get('username')?.trim();
+
+  if (!username) {
+    return NextResponse.json({ error: 'Falta el parámetro username' }, { status: 400 });
+  }
+
+  const profileData = await fetchMALProfile(username);
+  if (!profileData) {
     return NextResponse.json(
-      { error: 'Error al conectar con MyAnimeList. Revisa tu conexión.' },
-      { status: 500 }
+      { error: `Usuario "${username}" no encontrado o error de conexión con MyAnimeList.` },
+      { status: 404 }
     );
   }
+
+  return NextResponse.json({
+    ok: true,
+    username: profileData.username,
+    avatar: profileData.avatar,
+    favorites: profileData.favorites,
+  });
 }

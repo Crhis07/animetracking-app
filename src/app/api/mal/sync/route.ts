@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TrackedAnime, AnimeStatus } from '@/lib/types';
+import { fetchMALProfile } from '../profile/route';
 
 function cleanImageUrl(url: string): string {
   if (!url || url.includes('spacer.gif')) return '';
@@ -212,19 +213,13 @@ export async function GET(req: NextRequest) {
       people: [],
     };
 
-    try {
-      const profileUrl = new URL('/api/mal/profile', req.url);
-      profileUrl.searchParams.set('username', username);
-      const profileRes = await fetch(profileUrl.toString());
-      if (profileRes.ok) {
-        const pData = await profileRes.json();
-        avatar = pData.avatar || null;
-        if (pData.favorites) {
-          favorites = pData.favorites;
-        }
+    const profileData = await fetchMALProfile(username);
+    if (profileData) {
+      avatar = profileData.avatar || null;
+      if (profileData.favorites) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        favorites = profileData.favorites as any;
       }
-    } catch (e) {
-      console.warn('Could not fetch favorites during sync:', e);
     }
 
     if (animes.length === 0 && mangas.length === 0 && !avatar) {
