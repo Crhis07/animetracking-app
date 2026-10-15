@@ -91,8 +91,8 @@ export default function Navbar() {
               height: 44,
               borderRadius: '50%',
               objectFit: 'cover',
-              border: '2px solid rgba(236, 72, 153, 0.8)',
-              boxShadow: '0 0 16px rgba(236, 72, 153, 0.5), 0 0 25px rgba(99, 102, 241, 0.35)',
+              border: '2px solid #a78bfa',
+              boxShadow: '0 4px 14px rgba(167, 139, 250, 0.3)',
             }}
           />
         </div>
