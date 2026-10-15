@@ -14,6 +14,7 @@ import {
   toggleFavoriteMedia,
   isFavoriteMedia,
 } from '@/lib/store';
+import { syncItemToMAL } from '@/lib/mal-api';
 
 interface Props {
   anime: TrackedAnime;
@@ -134,10 +135,12 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
       const next = Math.max(0, currentUnits + delta);
       if (totalUnits && next > totalUnits) return;
       updateChapter(anime.malId, next);
+      syncItemToMAL({ malId: anime.malId, kind: 'manga', chapter: next });
     } else {
       const next = Math.max(0, currentUnits + delta);
       if (totalUnits && next > totalUnits) return;
       updateEpisode(anime.malId, next, 'anime');
+      syncItemToMAL({ malId: anime.malId, kind: 'anime', episode: next });
     }
     onUpdate();
   };
@@ -146,8 +149,10 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
     const next = Math.max(0, val);
     if (isManga) {
       updateChapter(anime.malId, next);
+      syncItemToMAL({ malId: anime.malId, kind: 'manga', chapter: next });
     } else {
       updateEpisode(anime.malId, next, 'anime');
+      syncItemToMAL({ malId: anime.malId, kind: 'anime', episode: next });
     }
     onUpdate();
   };
@@ -156,24 +161,34 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
     e.stopPropagation();
     if (totalUnits) {
       handleSetExactProgress(totalUnits);
+      syncItemToMAL({
+        malId: anime.malId,
+        kind,
+        status: 'completed',
+        ...(isManga ? { chapter: totalUnits } : { episode: totalUnits }),
+      });
     } else {
       updateStatus(anime.malId, 'completed', kind);
+      syncItemToMAL({ malId: anime.malId, kind, status: 'completed' });
       onUpdate();
     }
   };
 
   const handleStatusChange = (status: AnimeStatus) => {
     updateStatus(anime.malId, status, kind);
+    syncItemToMAL({ malId: anime.malId, kind, status });
     onUpdate();
   };
 
   const handleScoreChange = (score: number | null) => {
     updateScore(anime.malId, score, kind);
+    syncItemToMAL({ malId: anime.malId, kind, score });
     onUpdate();
   };
 
   const handleNotesSave = () => {
     updateNotes(anime.malId, notes, kind);
+    syncItemToMAL({ malId: anime.malId, kind, notes });
     onUpdate();
   };
 
