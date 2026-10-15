@@ -78,46 +78,50 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="navbar">
-      {/* Brand with Waifu Logo */}
-      <Link href="/list" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.jpg"
-            alt="AniTrack Waifu Logo"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              objectFit: 'cover',
-              border: '2px solid #a78bfa',
-              boxShadow: '0 4px 14px rgba(167, 139, 250, 0.3)',
-            }}
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-          <span
-            style={{
-              fontWeight: 800,
-              fontSize: '1.05rem',
-              letterSpacing: '-0.02em',
-              background: 'linear-gradient(135deg, #ffffff 0%, #e0e7ff 60%, #f472b6 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            AniTrack
-          </span>
-          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>
-            Anime & Manga Tracker
-          </span>
-        </div>
-      </Link>
+    <>
+      <nav className="navbar">
+        {/* Brand with Waifu Logo */}
+        <Link href="/list" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.jpg"
+              alt="AniTrack Waifu Logo"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '2px solid #a78bfa',
+                boxShadow: '0 4px 14px rgba(167, 139, 250, 0.3)',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+            <span
+              className="brand-title"
+              style={{
+                fontWeight: 800,
+                fontSize: '1.05rem',
+                letterSpacing: '-0.02em',
+                background: 'linear-gradient(135deg, #ffffff 0%, #e0e7ff 60%, #f472b6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              AniTrack
+            </span>
+            <span
+              className="brand-subtitle"
+              style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}
+            >
+              Anime & Manga Tracker
+            </span>
+          </div>
+        </Link>
 
-      {/* Nav links & Profile */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div className="navbar-nav">
+        {/* Desktop Nav Links */}
+        <div className="navbar-nav desktop-nav">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -130,75 +134,104 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* MAL Profile Pill */}
-        {profile ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '4px 10px 4px 6px',
-              background: 'rgba(46, 81, 162, 0.2)',
-              border: '1px solid rgba(99, 102, 241, 0.35)',
-              borderRadius: 30,
-            }}
-            title={`Cuenta vinculada: @${profile.username}. Clic para sincronizar.`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={profile.avatar || '/logo.jpg'}
-              alt={profile.username}
+        {/* Right Action: MAL Profile / Sync */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {profile ? (
+            <div
               style={{
-                width: 24,
-                height: 24,
-                borderRadius: '50%',
-                objectFit: 'cover',
-              }}
-            />
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#e0e7ff', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {profile.username}
-            </span>
-            <button
-              onClick={handleQuickSync}
-              disabled={isSyncing}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#a5b4fc',
                 display: 'flex',
                 alignItems: 'center',
-                padding: 2,
-                fontSize: '0.85rem',
+                gap: 7,
+                padding: '4px 10px 4px 6px',
+                background: 'rgba(46, 81, 162, 0.2)',
+                border: '1px solid rgba(167, 139, 250, 0.3)',
+                borderRadius: 30,
               }}
-              title="Sincronizar ahora con MyAnimeList"
+              title={`Cuenta vinculada: @${profile.username}. Clic para sincronizar.`}
             >
-              <span style={{ display: 'inline-block', animation: isSyncing ? 'spin 1s linear infinite' : 'none' }}>
-                🔄
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={profile.avatar || '/logo.jpg'}
+                alt={profile.username}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  color: '#e0e7ff',
+                  maxWidth: 75,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {profile.username}
               </span>
-            </button>
-          </div>
-        ) : (
-          <Link
-            href="/settings"
-            style={{
-              fontSize: '0.75rem',
-              padding: '5px 10px',
-              borderRadius: 20,
-              background: 'rgba(46, 81, 162, 0.2)',
-              border: '1px solid rgba(46, 81, 162, 0.4)',
-              color: '#c7d2fe',
-              textDecoration: 'none',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <span>🎌</span> Vincular MAL
-          </Link>
-        )}
-      </div>
-    </nav>
+              <button
+                onClick={handleQuickSync}
+                disabled={isSyncing}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#a78bfa',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 2,
+                  fontSize: '0.85rem',
+                }}
+                title="Sincronizar ahora con MyAnimeList"
+              >
+                <span style={{ display: 'inline-block', animation: isSyncing ? 'spin 1s linear infinite' : 'none' }}>
+                  🔄
+                </span>
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/settings"
+              style={{
+                fontSize: '0.75rem',
+                padding: '5px 10px',
+                borderRadius: 20,
+                background: 'rgba(46, 81, 162, 0.2)',
+                border: '1px solid rgba(46, 81, 162, 0.4)',
+                color: '#c7d2fe',
+                textDecoration: 'none',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <span>🎌</span> Vincular MAL
+            </Link>
+          )}
+        </div>
+      </nav>
+
+      {/* Mobile Bottom Navigation Bar (Fixed for phones) */}
+      <nav className="mobile-bottom-nav">
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`mobile-nav-item ${isActive ? 'active' : ''}`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

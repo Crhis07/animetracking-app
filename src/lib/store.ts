@@ -154,6 +154,15 @@ export function updateNotes(malId: number, notes: string, kind: MediaKind = 'ani
   saveStore(store);
 }
 
+export function updateSynopsis(malId: number, synopsis: string, kind: MediaKind = 'anime'): void {
+  const store = loadStore();
+  const item = store.animes.find((a) => a.malId === malId && (a.kind ?? 'anime') === kind);
+  if (!item) return;
+  item.synopsis = synopsis;
+  item.updatedAt = new Date().toISOString();
+  saveStore(store);
+}
+
 export function exportStoreJSON(): string {
   const store = loadStore();
   store.lastExport = new Date().toISOString();

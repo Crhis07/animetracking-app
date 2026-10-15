@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrackedAnime, AnimeStatus, STATUS_ORDER, getStatusLabel, STATUS_COLORS } from '@/lib/types';
 import {
   updateEpisode,
@@ -9,6 +9,7 @@ import {
   updateScore,
   updateStatus,
   updateNotes,
+  updateSynopsis,
   removeAnime,
   toggleFavoriteMedia,
   isFavoriteMedia,
@@ -100,10 +101,28 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
   const [showDetail, setShowDetail] = useState(false);
   const [notes, setNotes] = useState(anime.notes);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [synopsis, setSynopsis] = useState(anime.synopsis || '');
+  const [loadingSynopsis, setLoadingSynopsis] = useState(false);
 
   const kind = anime.kind ?? 'anime';
   const isManga = kind === 'manga';
   const [isFav, setIsFav] = useState(() => isFavoriteMedia(anime.malId, isManga ? 'manga' : 'anime'));
+
+  useEffect(() => {
+    if (showDetail && !synopsis) {
+      setLoadingSynopsis(true);
+      fetch(`/api/media/synopsis?malId=${anime.malId}&type=${kind}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.synopsis) {
+            setSynopsis(data.synopsis);
+            updateSynopsis(anime.malId, data.synopsis, kind);
+          }
+        })
+        .catch((err) => console.warn('Error fetching synopsis:', err))
+        .finally(() => setLoadingSynopsis(false));
+    }
+  }, [showDetail, anime.malId, kind, synopsis]);
 
   const totalUnits = isManga ? anime.totalChapters : anime.totalEpisodes;
   const currentUnits = isManga ? (anime.currentChapter ?? 0) : anime.currentEpisode;
@@ -517,8 +536,66 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
               </div>
             </div>
 
+            {/* Brief Synopsis Section */}
+            <div
+              style={{
+                marginTop: 14,
+                marginBottom: 6,
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '12px 14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: 'var(--text-accent)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span>📖</span> Breve descripción / Sinopsis
+                </span>
+                {loadingSynopsis && (
+                  <span style={{ fontSize: '0.72rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>🔄</span> Buscando sinopsis...
+                  </span>
+                )}
+              </div>
+
+              {synopsis ? (
+                <p
+                  style={{
+                    fontSize: '0.84rem',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.6,
+                    maxHeight: 120,
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-line',
+                    paddingRight: 4,
+                  }}
+                >
+                  {synopsis}
+                </p>
+              ) : loadingSynopsis ? (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                  Cargando sinopsis oficial desde AniList / MyAnimeList...
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+                  No hay descripción disponible para este título.
+                </p>
+              )}
+            </div>
+
             {/* Separator */}
-            <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.08)', margin: '18px 0' }} />
+            <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.08)', margin: '14px 0' }} />
 
             {/* Controls Form */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -641,65 +718,31 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
                 />
               </div>
 
-              {/* Synopsis if present */}
-              {anime.synopsis && (
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
-                    Sinopsis
-                  </label>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, maxHeight: 90, overflowY: 'auto' }}>
-                    {anime.synopsis}
-                  </p>
-                </div>
-              )}
-
-              {/* Modal Footer with High-Contrast Action Buttons */}
+              {/* Modal Actions Footer with Clear Separation */}
               <div
                 style={{
-                  borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderTop: '1px solid var(--border)',
                   paddingTop: 16,
+                  marginTop: 6,
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  gap: 14,
                 }}
               >
-                {!confirmDelete ? (
-                  <button
-                    type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--status-dropped)',
-                      fontSize: '0.82rem',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                      opacity: 0.8,
-                    }}
-                    onClick={() => setConfirmDelete(true)}
-                  >
-                    Eliminar de mi lista
-                  </button>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-danger btn-sm" onClick={handleDelete}>
-                      Confirmar
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: 10 }}>
+                {/* Primary Actions Row (Cerrar & Guardar) */}
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-secondary"
                     style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: '#ffffff',
-                      border: '1px solid rgba(255, 255, 255, 0.25)',
-                      padding: '8px 20px',
+                      flex: '1 1 120px',
+                      maxWidth: 150,
+                      height: 42,
                       fontWeight: 600,
+                      justifyContent: 'center',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      color: '#e2e8f0',
+                      border: '1px solid var(--border)',
                     }}
                     onClick={() => setShowDetail(false)}
                   >
@@ -708,14 +751,80 @@ export default function AnimeCard({ anime, onUpdate }: Props) {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    style={{ padding: '8px 22px' }}
+                    style={{
+                      flex: '2 1 180px',
+                      height: 42,
+                      fontWeight: 700,
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
                     onClick={() => {
                       handleNotesSave();
                       setShowDetail(false);
                     }}
                   >
-                    Guardar cambios
+                    <span>💾</span> Guardar cambios
                   </button>
+                </div>
+
+                {/* Danger Section: Strictly separated from primary buttons */}
+                <div style={{ borderTop: '1px dashed rgba(248, 113, 113, 0.25)', paddingTop: 10 }}>
+                  {!confirmDelete ? (
+                    <button
+                      type="button"
+                      style={{
+                        background: 'rgba(248, 113, 113, 0.08)',
+                        border: '1px solid rgba(248, 113, 113, 0.25)',
+                        color: '#f87171',
+                        borderRadius: 8,
+                        padding: '7px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease',
+                      }}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <span>🗑️</span> Eliminar de mi lista
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        background: 'rgba(248, 113, 113, 0.12)',
+                        border: '1px solid rgba(248, 113, 113, 0.35)',
+                        borderRadius: 10,
+                        padding: '12px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                      }}
+                    >
+                      <span style={{ fontSize: '0.82rem', color: '#fca5a5', fontWeight: 600 }}>
+                        ⚠️ ¿Seguro que deseas eliminar este {isManga ? 'manga' : 'anime'} de tu lista?
+                      </span>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          style={{ flex: '1 1 auto', padding: '8px 14px', fontWeight: 700, justifyContent: 'center' }}
+                          onClick={handleDelete}
+                        >
+                          Sí, eliminar definitivamente
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ flex: '1 1 auto', padding: '8px 14px', justifyContent: 'center' }}
+                          onClick={() => setConfirmDelete(false)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
