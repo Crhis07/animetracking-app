@@ -240,17 +240,31 @@ export default function SettingsPage() {
             <div>
               <form onSubmit={handleStartOAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 5 }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
                     Client ID de MyAnimeList
                   </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Pega tu Client ID aquí..."
-                    value={clientIdInput}
-                    onChange={(e) => setClientIdInput(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Pega aquí tu Client ID generado en MyAnimeList..."
+                      value={clientIdInput}
+                      onChange={(e) => setClientIdInput(e.target.value)}
+                      style={{
+                        width: '100%',
+                        paddingLeft: 38,
+                        background: 'rgba(14, 19, 32, 0.95)',
+                        border: '1.5px solid rgba(167, 139, 250, 0.35)',
+                        borderRadius: 10,
+                        color: '#f1f5f9',
+                        fontSize: '0.88rem',
+                        height: 44,
+                      }}
+                    />
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.6, fontSize: '1rem', pointerEvents: 'none' }}>
+                      🔑
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>

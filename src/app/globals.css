@@ -530,6 +530,29 @@ ul, ol { list-style: none; }
   background: var(--bg-card-hover);
 }
 
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all var(--t-normal) var(--ease-out);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.22);
+  background: var(--bg-card-hover);
+  color: #fff;
+}
+
 /* ═══════════════════════════════════════════
    SEARCH RESULT CARD (grid)
 ═══════════════════════════════════════════ */
