@@ -225,11 +225,35 @@ export function mergeFromMALSync(
       store.animes.push(item);
       added++;
     } else {
-      // Preserve existing user-specific notes if the new one is empty
+      const existing = store.animes[idx];
+      // Progress: Keep highest progress so user never loses watched episodes/chapters
+      const maxEpisode = Math.max(existing.currentEpisode ?? 0, item.currentEpisode ?? 0);
+      const maxChapter = Math.max(existing.currentChapter ?? 0, item.currentChapter ?? 0);
+      const maxVolume = Math.max(existing.currentVolume ?? 0, item.currentVolume ?? 0);
+
+      // Status: if local completed or reached max units, preserve completed
+      let resolvedStatus = item.status;
+      if (
+        existing.status === 'completed' ||
+        (item.totalEpisodes && maxEpisode >= item.totalEpisodes) ||
+        (item.totalChapters && maxChapter >= item.totalChapters)
+      ) {
+        resolvedStatus = 'completed';
+      } else if (existing.status && existing.status !== 'planned' && item.status === 'planned') {
+        resolvedStatus = existing.status;
+      }
+
       store.animes[idx] = {
         ...item,
-        notes: item.notes || store.animes[idx].notes || '',
-        coverImage: item.coverImage || store.animes[idx].coverImage,
+        currentEpisode: maxEpisode,
+        currentChapter: maxChapter,
+        currentVolume: maxVolume,
+        status: resolvedStatus,
+        score: existing.score ?? item.score,
+        notes: existing.notes || item.notes || '',
+        synopsis: existing.synopsis || item.synopsis || '',
+        coverImage: existing.coverImage || item.coverImage,
+        updatedAt: new Date().toISOString(),
       };
       updated++;
     }
