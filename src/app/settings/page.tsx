@@ -1,18 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import ImportModal from '@/components/ImportModal';
-import { getAnimes, exportStoreJSON } from '@/lib/store';
+import { getAnimes, exportStoreJSON, getMALProfile, saveMALProfile, mergeFromMALSync } from '@/lib/store';
+import { MALProfile } from '@/lib/types';
 
 export default function SettingsPage() {
   const [showImport, setShowImport] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
+  // MAL link state
+  const [malProfile, setMalProfile] = useState<MALProfile | null>(null);
+  const [malInput, setMalInput] = useState('');
+  const [isSyncingMAL, setIsSyncingMAL] = useState(false);
+  const [malMessage, setMalMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setMalProfile(getMALProfile());
+  }, []);
+
   const items = typeof window !== 'undefined' ? getAnimes() : [];
   const animeCount = items.filter((a) => (a.kind ?? 'anime') === 'anime').length;
   const mangaCount = items.filter((a) => a.kind === 'manga').length;
+
+  const handleMALSync = async (userToSync: string) => {
+    if (!userToSync.trim()) return;
+    setIsSyncingMAL(true);
+    setMalMessage(null);
+
+    try {
+      const res = await fetch(`/api/mal/sync?username=${encodeURIComponent(userToSync.trim())}`);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setMalMessage({ type: 'error', text: data.error || 'Error al sincronizar con MyAnimeList.' });
+        setIsSyncingMAL(false);
+        return;
+      }
+
+      const { added, updated } = mergeFromMALSync(data.entries || [], data.favorites, data.profile);
+      setMalProfile(data.profile);
+      setMalInput('');
+      setMalMessage({
+        type: 'success',
+        text: `✅ ¡Sincronización exitosa! ${data.totalAnime} animes, ${data.totalManga} mangas y todos tus favoritos vinculados (${added} nuevos, ${updated} actualizados).`,
+      });
+    } catch (err) {
+      console.error(err);
+      setMalMessage({ type: 'error', text: 'Error de conexión con el servidor de sincronización.' });
+    } finally {
+      setIsSyncingMAL(false);
+    }
+  };
+
+  const handleUnlinkMAL = () => {
+    saveMALProfile(null);
+    setMalProfile(null);
+    setMalMessage({ type: 'success', text: 'Cuenta de MyAnimeList desvinculada.' });
+  };
 
   const handleExport = () => {
     const json = exportStoreJSON();
@@ -38,7 +85,168 @@ export default function SettingsPage() {
       <main className="page-wrapper" style={{ maxWidth: 640 }}>
         <div className="page-header">
           <h1 className="page-title">Ajustes</h1>
-          <p className="page-subtitle">Gestiona tus datos y preferencias</p>
+          <p className="page-subtitle">Gestiona tu vinculación con MyAnimeList y tus datos</p>
+        </div>
+
+        {/* MyAnimeList Direct Link Card */}
+        <div
+          className="card"
+          style={{
+            padding: 22,
+            marginBottom: 20,
+            background: 'linear-gradient(135deg, rgba(18, 19, 31, 0.95) 0%, rgba(30, 41, 75, 0.5) 100%)',
+            borderColor: malProfile ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.1)',
+            boxShadow: malProfile ? '0 8px 32px rgba(99, 102, 241, 0.15)' : 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div className="section-title" style={{ margin: 0, gap: 10 }}>
+              <span
+                style={{
+                  background: '#2e51a2',
+                  color: '#fff',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                MAL
+              </span>
+              <span>Vinculación con MyAnimeList</span>
+            </div>
+            {malProfile && (
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: '#4ade80',
+                  background: 'rgba(74, 222, 128, 0.15)',
+                  padding: '3px 10px',
+                  borderRadius: 20,
+                  fontWeight: 600,
+                  border: '1px solid rgba(74, 222, 128, 0.3)',
+                }}
+              >
+                ● Vinculado
+              </span>
+            )}
+          </div>
+
+          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
+            {malProfile
+              ? `Tu cuenta pública de MyAnimeList está vinculada. Puedes sincronizar tus animes, mangas y las 4 categorías de favoritos con 1 solo clic en cualquier dispositivo.`
+              : `Vincula tu usuario público de MyAnimeList. Se sincronizarán automáticamente todos tus animes, mangas, tu foto de perfil y tus favoritos (animes, mangas, waifus/personajes y seiyuus) sin necesidad de subir archivos de respaldo.`}
+          </p>
+
+          {malProfile ? (
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '12px 16px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: 12,
+                  marginBottom: 16,
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={malProfile.avatar || '/logo.jpg'}
+                  alt={malProfile.username}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid #6366f1',
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>
+                    @{malProfile.username}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {malProfile.lastSyncedAt
+                      ? `Última sincronización: ${new Date(malProfile.lastSyncedAt).toLocaleString('es-ES')}`
+                      : 'Vinculado'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleMALSync(malProfile.username)}
+                  disabled={isSyncingMAL}
+                  style={{ flex: 1, minWidth: 200, justifyContent: 'center' }}
+                >
+                  <span style={{ display: 'inline-block', animation: isSyncingMAL ? 'spin 1s linear infinite' : 'none' }}>
+                    🔄
+                  </span>
+                  <span>{isSyncingMAL ? 'Sincronizando con MyAnimeList...' : 'Sincronizar Todo Ahora'}</span>
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={handleUnlinkMAL}
+                  disabled={isSyncingMAL}
+                  style={{ color: '#f87171', borderColor: 'rgba(248, 113, 113, 0.3)' }}
+                >
+                  Desvincular
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleMALSync(malInput);
+                }}
+                style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}
+              >
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Tu nombre de usuario en MyAnimeList..."
+                  value={malInput}
+                  onChange={(e) => setMalInput(e.target.value)}
+                  style={{ flex: 1, minWidth: 220 }}
+                  disabled={isSyncingMAL}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!malInput.trim() || isSyncingMAL}
+                  style={{ minWidth: 160 }}
+                >
+                  <span style={{ display: 'inline-block', animation: isSyncingMAL ? 'spin 1s linear infinite' : 'none' }}>
+                    🔄
+                  </span>
+                  <span>{isSyncingMAL ? 'Sincronizando...' : 'Vincular y Sincronizar'}</span>
+                </button>
+              </form>
+            </div>
+          )}
+
+          {malMessage && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: '10px 14px',
+                borderRadius: 8,
+                fontSize: '0.84rem',
+                background: malMessage.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                color: malMessage.type === 'success' ? '#86efac' : '#fca5a5',
+                border: `1px solid ${malMessage.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+              }}
+            >
+              {malMessage.text}
+            </div>
+          )}
         </div>
 
         {/* Info card */}

@@ -67,9 +67,16 @@ export interface UserFavorites {
   people: FavoritePerson[];
 }
 
+export interface MALProfile {
+  username: string;
+  avatar?: string | null;
+  lastSyncedAt?: string | null;
+}
+
 export interface AppStore {
   animes: TrackedAnime[];
   favorites?: UserFavorites;
+  malProfile?: MALProfile | null;
   version: number;
   lastExport: string | null;
 }

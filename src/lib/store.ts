@@ -1,4 +1,4 @@
-import { AppStore, TrackedAnime, AnimeStatus, MediaKind, FavoriteItem, FavoriteCharacter, FavoritePerson, UserFavorites } from './types';
+import { AppStore, TrackedAnime, AnimeStatus, MediaKind, FavoriteItem, FavoriteCharacter, FavoritePerson, UserFavorites, MALProfile } from './types';
 
 const STORE_KEY = 'animelist_v1';
 const STORE_VERSION = 1;
@@ -12,6 +12,11 @@ function getDefaultStore(): AppStore {
       characters: [],
       people: [],
     },
+    malProfile: {
+      username: 'Crhis007',
+      avatar: 'https://cdn.myanimelist.net/s/common/userimages/25c4e10d-41d0-4e92-82a9-45776f50de0d_225w?s=ea5b0ccb9b4f3b2eaeb606a0c5ca4a8a',
+      lastSyncedAt: null,
+    },
     version: STORE_VERSION,
     lastExport: null,
   };
@@ -24,6 +29,13 @@ export function loadStore(): AppStore {
     if (!raw) return getDefaultStore();
     const parsed = JSON.parse(raw) as AppStore;
     if (!parsed.version || !Array.isArray(parsed.animes)) return getDefaultStore();
+    if (!parsed.malProfile) {
+      parsed.malProfile = {
+        username: 'Crhis007',
+        avatar: 'https://cdn.myanimelist.net/s/common/userimages/25c4e10d-41d0-4e92-82a9-45776f50de0d_225w?s=ea5b0ccb9b4f3b2eaeb606a0c5ca4a8a',
+        lastSyncedAt: null,
+      };
+    }
     return parsed;
   } catch {
     return getDefaultStore();
@@ -172,6 +184,58 @@ export function importStoreJSON(json: string): { success: boolean; count: number
   } catch {
     return { success: false, count: 0, error: 'El archivo no es un JSON válido.' };
   }
+}
+
+// ───── MAL PROFILE & DIRECT SYNC ─────
+
+export function getMALProfile(): MALProfile | null {
+  return loadStore().malProfile ?? null;
+}
+
+export function saveMALProfile(profile: MALProfile | null): void {
+  const store = loadStore();
+  store.malProfile = profile;
+  saveStore(store);
+}
+
+export function mergeFromMALSync(
+  entries: TrackedAnime[],
+  favorites?: UserFavorites,
+  profile?: MALProfile
+): { added: number; updated: number } {
+  const store = loadStore();
+  let added = 0;
+  let updated = 0;
+
+  for (const item of entries) {
+    const kind = item.kind ?? 'anime';
+    const idx = store.animes.findIndex(
+      (a) => a.malId === item.malId && (a.kind ?? 'anime') === kind
+    );
+    if (idx === -1) {
+      store.animes.push(item);
+      added++;
+    } else {
+      // Preserve existing user-specific notes if the new one is empty
+      store.animes[idx] = {
+        ...item,
+        notes: item.notes || store.animes[idx].notes || '',
+        coverImage: item.coverImage || store.animes[idx].coverImage,
+      };
+      updated++;
+    }
+  }
+
+  if (favorites) {
+    store.favorites = favorites;
+  }
+
+  if (profile) {
+    store.malProfile = profile;
+  }
+
+  saveStore(store);
+  return { added, updated };
 }
 
 // ───── FAVORITES ─────

@@ -1,8 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserFavorites } from '@/lib/types';
-import { getFavorites, removeFavoriteMedia, removeFavoriteCharacter, removeFavoritePerson } from '@/lib/store';
+import { UserFavorites, MALProfile } from '@/lib/types';
+import {
+  getFavorites,
+  saveFavorites,
+  removeFavoriteMedia,
+  removeFavoriteCharacter,
+  removeFavoritePerson,
+  getMALProfile,
+  saveMALProfile,
+} from '@/lib/store';
 import FavoritesModal from './FavoritesModal';
 
 export default function FavoritesSection() {
@@ -10,18 +18,87 @@ export default function FavoritesSection() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'anime' | 'manga' | 'character' | 'people'>('anime');
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [isSyncingMAL, setIsSyncingMAL] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showMALPrompt, setShowMALPrompt] = useState(false);
+  const [malUserInput, setMalUserInput] = useState('');
 
   const refreshFavorites = () => {
     setFavorites(getFavorites());
   };
 
   useEffect(() => {
-    refreshFavorites();
+    const cur = getFavorites();
+    setFavorites(cur);
+    const hasAny =
+      (cur.animes?.length || 0) > 0 ||
+      (cur.mangas?.length || 0) > 0 ||
+      (cur.characters?.length || 0) > 0 ||
+      (cur.people?.length || 0) > 0;
+
+    const profile = getMALProfile();
+    if (!hasAny && profile?.username) {
+      handleSyncFromMAL(profile.username);
+    }
   }, []);
 
   const openModal = (tab: 'anime' | 'manga' | 'character' | 'people') => {
     setModalTab(tab);
     setModalOpen(true);
+  };
+
+  const handleSyncFromMAL = async (targetUsername?: string) => {
+    const profile = getMALProfile();
+    const userToSync = (targetUsername || profile?.username || '').trim();
+
+    if (!userToSync) {
+      setShowMALPrompt(true);
+      return;
+    }
+
+    setIsSyncingMAL(true);
+    setSyncStatus(null);
+
+    try {
+      const res = await fetch(`/api/mal/profile?username=${encodeURIComponent(userToSync)}`);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setSyncStatus({ type: 'error', msg: data.error || 'Error al obtener favoritos de MAL.' });
+        setIsSyncingMAL(false);
+        return;
+      }
+
+      if (data.favorites) {
+        saveFavorites(data.favorites);
+        refreshFavorites();
+
+        // Update profile in store
+        const updatedProfile: MALProfile = {
+          username: userToSync,
+          avatar: data.avatar || profile?.avatar || null,
+          lastSyncedAt: new Date().toISOString(),
+        };
+        saveMALProfile(updatedProfile);
+
+        const totalFavs =
+          (data.favorites.animes?.length || 0) +
+          (data.favorites.mangas?.length || 0) +
+          (data.favorites.characters?.length || 0) +
+          (data.favorites.people?.length || 0);
+
+        setSyncStatus({
+          type: 'success',
+          msg: `✅ ¡${totalFavs} favoritos importados exitosamente desde MyAnimeList (@${userToSync})!`,
+        });
+        setShowMALPrompt(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setSyncStatus({ type: 'error', msg: 'No se pudo conectar con el servidor de sincronización.' });
+    } finally {
+      setIsSyncingMAL(false);
+    }
   };
 
   const handleRemoveMedia = (malId: number, kind: 'anime' | 'manga', e: React.MouseEvent) => {
@@ -54,20 +131,143 @@ export default function FavoritesSection() {
             Tus animes, mangas, personajes/waifus y seiyuus predilectos
           </p>
         </div>
-        <button
-          className="btn btn-secondary"
-          onClick={() => openModal('anime')}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => handleSyncFromMAL()}
+            disabled={isSyncingMAL}
+            style={{
+              fontSize: '0.82rem',
+              padding: '6px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'linear-gradient(135deg, rgba(46, 81, 162, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%)',
+              borderColor: 'rgba(99, 102, 241, 0.4)',
+            }}
+            title="Importar automáticamente tus favoritos y waifus desde tu perfil de MyAnimeList"
+          >
+            <span style={{ display: 'inline-block', animation: isSyncingMAL ? 'spin 1s linear infinite' : 'none' }}>
+              🔄
+            </span>
+            <span>{isSyncingMAL ? 'Sincronizando de MAL...' : 'Sincronizar de MyAnimeList'}</span>
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={() => openModal('anime')}
+            style={{
+              fontSize: '0.82rem',
+              padding: '6px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>⚙️</span> Administrar Favoritos
+          </button>
+        </div>
+      </div>
+
+      {/* Sync Status Banner */}
+      {syncStatus && (
+        <div
           style={{
-            fontSize: '0.82rem',
-            padding: '6px 14px',
+            margin: '12px 0',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            fontSize: '0.85rem',
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
+            justifyContent: 'space-between',
+            background: syncStatus.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${syncStatus.type === 'success' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+            color: syncStatus.type === 'success' ? '#86efac' : '#fca5a5',
           }}
         >
-          <span>⚙️</span> Administrar Favoritos
-        </button>
-      </div>
+          <span>{syncStatus.msg}</span>
+          <button
+            onClick={() => setSyncStatus(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1rem' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* MAL Prompt Modal */}
+      {showMALPrompt && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16,
+          }}
+          onClick={() => setShowMALPrompt(false)}
+        >
+          <div
+            style={{
+              background: 'var(--card-bg, #12131f)',
+              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 440,
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: '1.5rem' }}>⭐</span>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Sincronizar Favoritos de MAL</h3>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+              Ingresa tu nombre de usuario público de MyAnimeList para importar tus 10 animes, 10 mangas, 10 personajes/waifus y 10 seiyuus predilectos:
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (malUserInput.trim()) {
+                  handleSyncFromMAL(malUserInput.trim());
+                }
+              }}
+            >
+              <input
+                type="text"
+                className="input"
+                placeholder="Tu usuario en MyAnimeList (ej. Xinil)"
+                value={malUserInput}
+                onChange={(e) => setMalUserInput(e.target.value)}
+                style={{ width: '100%', marginBottom: 16 }}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setShowMALPrompt(false)}
+                  disabled={isSyncingMAL}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!malUserInput.trim() || isSyncingMAL}
+                >
+                  {isSyncingMAL ? 'Importando...' : 'Sincronizar Ahora'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ───── 1. ANIME ROW ───── */}
       <div className="favorites-category-group">
@@ -180,7 +380,7 @@ export default function FavoritesSection() {
       <div className="favorites-category-group">
         <div className="favorites-category-header">
           <span className="favorites-category-label">
-            Character (10) <span style={{ opacity: 0.65 }}>({favorites.characters.length}/10)</span>
+            Personajes / Waifus <span style={{ opacity: 0.65 }}>({favorites.characters.length}/10)</span>
           </span>
           {favorites.characters.length < 10 && (
             <button
@@ -238,7 +438,7 @@ export default function FavoritesSection() {
       <div className="favorites-category-group" style={{ marginBottom: 0 }}>
         <div className="favorites-category-header">
           <span className="favorites-category-label">
-            People (10) <span style={{ opacity: 0.65 }}>({(favorites.people?.length || 0)}/10)</span>
+            Seiyuus / Personas <span style={{ opacity: 0.65 }}>({(favorites.people?.length || 0)}/10)</span>
           </span>
           {(favorites.people?.length || 0) < 10 && (
             <button

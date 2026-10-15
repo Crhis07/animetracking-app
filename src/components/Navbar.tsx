@@ -1,7 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getMALProfile, mergeFromMALSync } from '@/lib/store';
+import { MALProfile } from '@/lib/types';
 
 const NAV_ITEMS = [
   {
@@ -48,6 +51,31 @@ const NAV_ITEMS = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const [profile, setProfile] = useState<MALProfile | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    setProfile(getMALProfile());
+  }, [pathname]);
+
+  const handleQuickSync = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!profile?.username || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`/api/mal/sync?username=${encodeURIComponent(profile.username)}`);
+      if (res.ok) {
+        const data = await res.json();
+        mergeFromMALSync(data.entries || [], data.favorites, data.profile);
+        setProfile(data.profile);
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   return (
     <nav className="navbar">
@@ -87,18 +115,89 @@ export default function Navbar() {
         </div>
       </Link>
 
-      {/* Nav links */}
-      <div className="navbar-nav">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`nav-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
+      {/* Nav links & Profile */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="navbar-nav">
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`nav-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* MAL Profile Pill */}
+        {profile ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '4px 10px 4px 6px',
+              background: 'rgba(46, 81, 162, 0.2)',
+              border: '1px solid rgba(99, 102, 241, 0.35)',
+              borderRadius: 30,
+            }}
+            title={`Cuenta vinculada: @${profile.username}. Clic para sincronizar.`}
           >
-            {item.icon}
-            <span>{item.label}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={profile.avatar || '/logo.jpg'}
+              alt={profile.username}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                objectFit: 'cover',
+              }}
+            />
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#e0e7ff', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {profile.username}
+            </span>
+            <button
+              onClick={handleQuickSync}
+              disabled={isSyncing}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#a5b4fc',
+                display: 'flex',
+                alignItems: 'center',
+                padding: 2,
+                fontSize: '0.85rem',
+              }}
+              title="Sincronizar ahora con MyAnimeList"
+            >
+              <span style={{ display: 'inline-block', animation: isSyncing ? 'spin 1s linear infinite' : 'none' }}>
+                🔄
+              </span>
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/settings"
+            style={{
+              fontSize: '0.75rem',
+              padding: '5px 10px',
+              borderRadius: 20,
+              background: 'rgba(46, 81, 162, 0.2)',
+              border: '1px solid rgba(46, 81, 162, 0.4)',
+              color: '#c7d2fe',
+              textDecoration: 'none',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span>🎌</span> Vincular MAL
           </Link>
-        ))}
+        )}
       </div>
     </nav>
   );

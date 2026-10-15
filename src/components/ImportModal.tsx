@@ -4,7 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { importFromAniList } from '@/lib/anilist';
 import { parseMALXML } from '@/lib/mal-import';
 import { batchFetchCovers } from '@/lib/covers';
-import { upsertAnime, exportStoreJSON, importStoreJSON, getAnimes } from '@/lib/store';
+import {
+  upsertAnime,
+  exportStoreJSON,
+  importStoreJSON,
+  getAnimes,
+  getMALProfile,
+  saveMALProfile,
+  saveFavorites,
+  mergeFromMALSync,
+} from '@/lib/store';
 
 interface Props {
   onClose: () => void;
@@ -17,6 +26,7 @@ type Tab = 'mal' | 'anilist' | 'json';
 export default function ImportModal({ onClose, onImported, onImportSuccess }: Props) {
   const [tab, setTab] = useState<Tab>('mal');
   const [username, setUsername] = useState('');
+  const [malDirectUser, setMalDirectUser] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [result, setResult] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
@@ -25,6 +35,13 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
   const [enrichProgress, setEnrichProgress] = useState<{ done: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const malFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const existing = getMALProfile();
+    if (existing?.username) {
+      setMalDirectUser(existing.username);
+    }
+  }, []);
 
   const notifySuccess = () => {
     onImported?.();
@@ -102,6 +119,23 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
       }
     }
 
+    if (userInfo?.username) {
+      try {
+        const favRes = await fetch(`/api/mal/profile?username=${encodeURIComponent(userInfo.username)}`);
+        if (favRes.ok) {
+          const favData = await favRes.json();
+          if (favData.favorites) {
+            saveFavorites(favData.favorites);
+          }
+          if (favData.avatar) {
+            saveMALProfile({ username: userInfo.username, avatar: favData.avatar, lastSyncedAt: new Date().toISOString() });
+          }
+        }
+      } catch (e) {
+        console.warn('Could not auto-fetch favorites from XML user:', e);
+      }
+    }
+
     notifySuccess();
     setEnrichProgress(null);
     setResult({
@@ -109,6 +143,39 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
       msg: `✅ ¡Lista de ${kindLabel} importada exitosamente! ${total} ${kindLabel} registrados con sus portadas e información.`,
     });
     setLoading(false);
+  };
+
+  // ─── Direct MAL Sync ───
+  const handleDirectMALSync = async () => {
+    if (!malDirectUser.trim()) return;
+    setLoading(true);
+    setResult({
+      type: 'info',
+      msg: `Conectando con MyAnimeList para sincronizar catálogo y favoritos de @${malDirectUser.trim()}...`,
+    });
+
+    try {
+      const res = await fetch(`/api/mal/sync?username=${encodeURIComponent(malDirectUser.trim())}`);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setResult({ type: 'error', msg: data.error || 'Error al sincronizar con MyAnimeList.' });
+        setLoading(false);
+        return;
+      }
+
+      const { added, updated } = mergeFromMALSync(data.entries || [], data.favorites, data.profile);
+      setResult({
+        type: 'success',
+        msg: `✅ ¡Sincronizado! ${data.totalAnime} animes, ${data.totalManga} mangas y favoritos cargados (${added} nuevos, ${updated} actualizados).`,
+      });
+      notifySuccess();
+    } catch (err) {
+      console.error(err);
+      setResult({ type: 'error', msg: 'Error al conectar con el servidor de sincronización.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ─── AniList Import ───
@@ -192,24 +259,59 @@ export default function ImportModal({ onClose, onImported, onImportSuccess }: Pr
             </button>
           </div>
 
-          {/* ─── MAL XML Tab ─── */}
+          {/* ─── MAL Tab ─── */}
           {tab === 'mal' && (
             <div>
-              <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 18, fontSize: '0.83rem', lineHeight: 1.7 }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span>📥</span> Cómo importar Anime y Manga de MyAnimeList:
+              {/* Direct Username Sync Block */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(46, 81, 162, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%)',
+                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 16,
+                  marginBottom: 18,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#fff', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>⚡</span> Sincronización Directa (Recomendado - Sin archivos)
                 </div>
-                <ol style={{ paddingLeft: 20, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <li>Entra en <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener" style={{ color: 'var(--primary)' }}>myanimelist.net/panel.php?go=export</a> (iniciando sesión en MAL)</li>
-                  <li>
-                    Descarga el archivo que quieras:
-                    <div style={{ marginTop: 4, display: 'flex', gap: 8 }}>
-                      <span style={{ background: 'var(--bg-glass)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>🎬 "Export Anime List"</span>
-                      <span style={{ background: 'var(--bg-glass)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>📖 "Export Manga List"</span>
-                    </div>
-                  </li>
-                  <li>Si se descarga como <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml.gz</code>, descomprímelo con 7-Zip o WinRAR para sacar el <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml</code></li>
-                  <li>Sube tu archivo abajo. <strong>¡Puedes subir primero tus animes y luego tus mangas!</strong> Cada uno se guarda en su panel correspondiente sin borrarse.</li>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+                  Escribe tu usuario público de MyAnimeList. Se sincronizarán todos tus animes, mangas y tus 4 categorías de favoritos (Anime, Manga, Waifus/Personajes y Seiyuus) de forma instantánea.
+                </p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Tu usuario en MyAnimeList..."
+                    value={malDirectUser}
+                    onChange={(e) => setMalDirectUser(e.target.value)}
+                    style={{ flex: 1, minWidth: 200 }}
+                    disabled={loading}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleDirectMALSync}
+                    disabled={!malDirectUser.trim() || loading}
+                  >
+                    {loading ? 'Sincronizando...' : '🔄 Sincronizar Todo'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Manual XML Option Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 10px' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  O subir archivo XML manual
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: 14, marginBottom: 14, fontSize: '0.81rem', lineHeight: 1.6 }}>
+                <ol style={{ paddingLeft: 18, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <li>Descarga tu respaldo en <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener" style={{ color: 'var(--primary)' }}>myanimelist.net/panel.php?go=export</a></li>
+                  <li>Si se descarga como <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml.gz</code>, descomprímelo para obtener el <code style={{ background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 4 }}>.xml</code></li>
+                  <li>Sube el archivo abajo: detectaremos automáticamente tu usuario e importaremos tus favoritos.</li>
                 </ol>
               </div>
 

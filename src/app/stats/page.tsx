@@ -3,19 +3,21 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Navbar from '@/components/Navbar';
-import { computeStats } from '@/lib/store';
-import { STATUS_LABELS, STATUS_ORDER, STATUS_COLORS } from '@/lib/types';
+import { computeStats, getMALProfile } from '@/lib/store';
+import { STATUS_LABELS, STATUS_ORDER, STATUS_COLORS, MALProfile } from '@/lib/types';
 import type { AnimeStats, StatScope } from '@/lib/store';
 import FavoritesSection from '@/components/FavoritesSection';
 
 export default function StatsPage() {
   const [scope, setScope] = useState<StatScope>('all');
   const [stats, setStats] = useState<AnimeStats | null>(null);
+  const [profile, setProfile] = useState<MALProfile | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setStats(computeStats(scope));
+    setProfile(getMALProfile());
   }, [scope]);
 
   if (!mounted || !stats) return null;
@@ -72,18 +74,16 @@ export default function StatsPage() {
             <div className="stats-hero-banner">
               <div className="stats-hero-user">
                 <div className="stats-hero-avatar">
-                  <Image
-                    src="/images/logo.png"
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profile?.avatar || '/logo.jpg'}
                     alt="AniTrack Avatar"
-                    width={58}
-                    height={58}
-                    style={{ objectFit: 'cover' }}
-                    priority
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>
                 <div>
                   <div className="stats-hero-title">
-                    {stats.otakuTitle}
+                    {profile?.username ? `@${profile.username} • ` : ''}{stats.otakuTitle}
                     <span className="stats-rank-tag">{stats.otakuRank}</span>
                   </div>
                   <div className="stats-hero-sub">
